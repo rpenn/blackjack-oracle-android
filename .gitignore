@@ -1,0 +1,59 @@
+# ── IDE ──────────────────────────────────────────────────────────────────────
+/.idea/workspace.xml
+/.idea/studiobot.xml
+/.idea/deviceManager.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/assetWizardSettings.xml
+/.idea/navEditor.xml
+/.idea/caches/
+/.idea/libraries/
+/.idea/modules.xml
+/.idea/shelf/
+*.iml
+
+# ── Gradle ───────────────────────────────────────────────────────────────────
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+local.properties
+
+# ── Build output (all modules) ───────────────────────────────────────────────
+# "build/" without a leading slash matches any depth (root build/, app/build/, etc.)
+build/
+/captures/
+.externalNativeBuild/
+.cxx/
+out/
+
+# ── Android generated ────────────────────────────────────────────────────────
+gen/
+bin/
+proguard/
+*.ap_
+
+# ── Signing / keys ───────────────────────────────────────────────────────────
+/app/AndroidKeys/
+*.jks
+*.keystore
+google-services.json
+*.p12
+
+# ── Release artifacts ────────────────────────────────────────────────────────
+/app/release/
+*.aab
+*.apk
+*.aar
+*.zip
+
+# ── OS generated ─────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Secrets / environment ────────────────────────────────────────────────────
+*.env
+.env.*
+secrets.properties

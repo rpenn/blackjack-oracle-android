@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Application colors live in code (ui/theme/Color.kt). This XML file is kept
+   only because some Android tooling expects res/values/colors.xml to exist.
+-->
+<resources />
