@@ -1,12 +1,9 @@
 package com.blackjackoracle.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +12,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -24,7 +20,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,10 +37,10 @@ import com.blackjackoracle.R
 import com.blackjackoracle.model.GameConfig
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.GameViewModel
+import androidx.compose.foundation.clickable
 
 @Composable
 fun SetupScreen(vm: GameViewModel) {
-    var aiCount by remember { mutableIntStateOf(2) }
     var showHelp by remember { mutableStateOf(false) }
 
     BackgroundGradientBox {
@@ -59,6 +54,8 @@ fun SetupScreen(vm: GameViewModel) {
             verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
             Spacer(modifier = Modifier.height(20.dp))
+
+            // Title
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     "Blackjack Oracle",
@@ -72,37 +69,37 @@ fun SetupScreen(vm: GameViewModel) {
                 )
             }
 
+            // Oliver mascot
             AsyncImage(
-                model = R.drawable.oliver,
+                model              = R.drawable.oliver,
                 contentDescription = "Oliver",
-                modifier = Modifier.size(160.dp)
+                modifier           = Modifier.size(160.dp)
             )
 
+            // Rules info card
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassCard()
                     .padding(22.dp)
             ) {
-                SettingRow("AI Players at Table", aiCount.toString()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf(1, 2, 3, 4, 5).forEach { n ->
-                            Chip(text = n.toString(), selected = aiCount == n) {
-                                aiCount = n
-                            }
-                        }
-                    }
-                }
                 Text(
-                    "Start: $100 · Min bet: $1 · Blackjack pays 3:2 · Dealer hits soft 17 · 8-deck shoe",
-                    color = BjColors.Neutral.copy(alpha = 0.6f),
-                    style = TextStyle(fontSize = 11.sp)
+                    "Start: \$100  ·  Min bet: \$1  ·  Blackjack pays 3:2",
+                    color = BjColors.Neutral.copy(alpha = 0.75f),
+                    style = TextStyle(fontSize = 12.sp)
+                )
+                Text(
+                    "Dealer hits soft 17  ·  8-deck shoe",
+                    color = BjColors.Neutral.copy(alpha = 0.75f),
+                    style = TextStyle(fontSize = 12.sp)
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // Start button — always 1v1 (human vs dealer)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,9 +107,7 @@ fun SetupScreen(vm: GameViewModel) {
                     .background(
                         Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
                     )
-                    .clickable {
-                        vm.startGame(GameConfig(aiPlayerCount = aiCount))
-                    }
+                    .clickable { vm.startGame(GameConfig(aiPlayerCount = 0)) }
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -124,15 +119,20 @@ fun SetupScreen(vm: GameViewModel) {
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().padding(top = 12.dp, end = 12.dp)) {
+        // Help button (top-right)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 12.dp, end = 12.dp)
+        ) {
             IconButton(
-                onClick = { showHelp = true },
+                onClick  = { showHelp = true },
                 modifier = Modifier.align(Alignment.TopEnd)
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                    imageVector        = Icons.AutoMirrored.Outlined.HelpOutline,
                     contentDescription = "Help",
-                    tint = BjColors.Neutral.copy(alpha = 0.55f)
+                    tint               = BjColors.Neutral.copy(alpha = 0.55f)
                 )
             }
         }
@@ -140,51 +140,5 @@ fun SetupScreen(vm: GameViewModel) {
         if (showHelp) {
             HowToPlayDialog(onDismiss = { showHelp = false })
         }
-    }
-}
-
-@Composable
-private fun SettingRow(title: String, value: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                title,
-                color = Color.White,
-                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            )
-            Text(
-                value,
-                color = BjColors.Accent,
-                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            )
-        }
-        content()
-    }
-}
-
-@Composable
-private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(if (selected) BjColors.Accent else Color.White.copy(alpha = 0.08f))
-            .border(
-                1.dp,
-                if (selected) BjColors.Accent else Color.White.copy(alpha = 0.18f),
-                CircleShape
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text,
-            color = if (selected) Color.Black else Color.White,
-            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        )
     }
 }

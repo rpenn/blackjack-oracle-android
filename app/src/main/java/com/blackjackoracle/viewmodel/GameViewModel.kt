@@ -242,7 +242,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         if (humanIdx >= 0 && take) {
             val human = players[humanIdx]
             val mainBet = human.hands.firstOrNull()?.bet ?: 0
-            val insurance = (mainBet / 2).coerceAtMost(human.chips)
+            val insurance = (mainBet / 2).coerceAtLeast(1).coerceAtMost(human.chips)
             if (insurance > 0) {
                 players[humanIdx] = human.copy(
                     chips = human.chips - insurance,
