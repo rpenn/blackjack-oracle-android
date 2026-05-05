@@ -730,7 +730,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             ifSplit = if (PlayerAction.Split in avail) wc.ifSplit else null
         )
 
-        state = state.copy(winChance = filteredWc)
+        state = state.copy(winChance = filteredWc, activeHandCount = p.hands.size, activeHandIdx = p.activeHandIndex)
     }
 
 

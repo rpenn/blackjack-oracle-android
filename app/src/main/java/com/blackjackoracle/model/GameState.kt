@@ -91,7 +91,10 @@ data class GameState(
     val isDealAnimating: Boolean = false,
     val actionHistory: ImmutableList<HandActionLog> = persistentListOf(),
     /** Total chips the human won across the session — for Game Over screen. */
-    val handsPlayed: Int = 0
+    val handsPlayed: Int = 0,
+    /** Added for win chance labeling of split hands. */
+    val activeHandCount: Int = 1,
+    val activeHandIdx: Int = 0
 )
 
 object GameConstants {

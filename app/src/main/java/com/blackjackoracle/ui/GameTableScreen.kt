@@ -162,7 +162,7 @@ fun GameTableScreen(vm: GameViewModel, tts: TtsService) {
                         .alpha(wcAlpha),
                     contentAlignment = Alignment.Center
                 ) {
-                    WinChanceRow(vm.state.winChance)
+                    WinChanceRow(vm)
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -473,15 +473,18 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
 // ─── Win-chance row (dedicated full-width, toggled by opacity) ────────────────
 
 @Composable
-private fun WinChanceRow(wc: com.blackjackoracle.model.WinChance?) {
-    if (wc == null) return
+private fun WinChanceRow(vm: GameViewModel) {
+    val wc = vm.state.winChance ?: return
+    val multiHand = vm.state.activeHandCount > 1
+    val handLabel = if (multiHand) "Hand ${vm.state.activeHandIdx + 1} " else ""
+
     Column(
         modifier              = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
         verticalArrangement   = Arrangement.spacedBy(4.dp),
         horizontalAlignment   = Alignment.CenterHorizontally
     ) {
-        WinBar(label = "Hit",   pct = wc.ifHit,   color = BjColors.InfoBlue)
-        WinBar(label = "Stand", pct = wc.ifStand, color = BjColors.Success)
+        WinBar(label = "${handLabel}Hit",   pct = wc.ifHit,   color = BjColors.InfoBlue)
+        WinBar(label = "${handLabel}Stand", pct = wc.ifStand, color = BjColors.Success)
         wc.ifDouble?.let {
             WinBar(label = "Double", pct = it, color = BjColors.Accent)
         }
