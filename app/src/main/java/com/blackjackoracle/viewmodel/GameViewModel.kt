@@ -120,7 +120,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     /** Called by the UI as the user adjusts the chip slider/buttons. */
     fun updateHumanPendingBet(amount: Int) {
         val human = state.players.firstOrNull { it.isHuman } ?: return
-        val clamped = amount.coerceIn(GameConstants.MIN_BET, human.chips.coerceAtLeast(GameConstants.MIN_BET))
+        val clamped = amount.coerceIn(0, human.chips.coerceAtLeast(0))
         val players = state.players.toMutableList()
         val idx = players.indexOfFirst { it.isHuman }
         players[idx] = players[idx].copy(pendingBet = clamped)
@@ -141,7 +141,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmBetsAndDeal() {
         if (state.phase != GamePhase.BETTING) return
         val human = state.players.firstOrNull { it.isHuman } ?: return
-        if (human.pendingBet < GameConstants.MIN_BET || human.pendingBet > human.chips) return
+        if (human.pendingBet <= 0 || human.pendingBet > human.chips) return
         startHand()
     }
 
@@ -719,9 +719,20 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             state = state.copy(winChance = null)
             return
         }
+
+        // Use standard compute - it now handles double/split internally
         val wc = WinChance.compute(hand.cards, up)
-        state = state.copy(winChance = wc)
+
+        // Filter out double/split if they aren't actually available to the player
+        val avail = availableActions()
+        val filteredWc = wc.copy(
+            ifDouble = if (PlayerAction.Double in avail) wc.ifDouble else null,
+            ifSplit = if (PlayerAction.Split in avail) wc.ifSplit else null
+        )
+
+        state = state.copy(winChance = filteredWc)
     }
+
 
     // -------- UI-facing helpers --------
 

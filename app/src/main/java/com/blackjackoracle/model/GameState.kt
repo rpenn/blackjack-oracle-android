@@ -64,11 +64,16 @@ data class HandActionLog(val playerName: String, val action: String, val handTot
 }
 
 /**
- * Two pre-computed win-rate estimates for the human player's active hand,
+ * Pre-computed win-rate estimates for the human player's active hand,
  * each in 0..100. Refreshed whenever the active hand or dealer up-card changes.
  */
 @Immutable
-data class WinChance(val ifHit: Double, val ifStand: Double)
+data class WinChance(
+    val ifHit: Double,
+    val ifStand: Double,
+    val ifDouble: Double? = null,
+    val ifSplit: Double? = null
+)
 
 @Immutable
 data class GameState(
@@ -91,7 +96,7 @@ data class GameState(
 
 object GameConstants {
     const val STARTING_CHIPS = 100
-    const val MIN_BET = 1
+    const val MIN_BET = 0
     const val DECK_COUNT = 8
     /** Reshuffle when ≤ 1.25 decks remain (8*52 - 1.25*52 = 351 dealt). */
     const val RESHUFFLE_AT_CARDS_REMAINING = 65

@@ -86,7 +86,7 @@ fun SetupScreen(vm: GameViewModel) {
                     .padding(22.dp)
             ) {
                 Text(
-                    "Start: \$100  ·  Min bet: \$1  ·  Blackjack pays 3:2",
+                    "Start: \$100  ·  Min bet: \$0  ·  Blackjack pays 3:2",
                     color = BjColors.Neutral.copy(alpha = 0.75f),
                     style = TextStyle(fontSize = 12.sp)
                 )

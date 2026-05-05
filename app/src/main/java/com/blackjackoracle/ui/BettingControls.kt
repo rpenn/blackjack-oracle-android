@@ -38,8 +38,8 @@ import com.blackjackoracle.viewmodel.GameViewModel
 @Composable
 fun BettingControls(vm: GameViewModel) {
     val human = vm.humanPlayer ?: return
-    val maxBet = human.chips.coerceAtLeast(GameConstants.MIN_BET)
-    val bet = human.pendingBet.coerceIn(GameConstants.MIN_BET, maxBet)
+    val maxBet = human.chips.coerceAtLeast(0)
+    val bet = human.pendingBet.coerceIn(0, maxBet)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -65,10 +65,10 @@ fun BettingControls(vm: GameViewModel) {
             )
         }
 
-        if (maxBet > GameConstants.MIN_BET) {
+        if (maxBet > 0) {
             Slider(
                 value = bet.toFloat(),
-                valueRange = GameConstants.MIN_BET.toFloat()..maxBet.toFloat(),
+                valueRange = 0f..maxBet.toFloat(),
                 steps = 0,
                 onValueChange = { vm.updateHumanPendingBet(it.toInt()) },
                 colors = SliderDefaults.colors(
@@ -89,25 +89,27 @@ fun BettingControls(vm: GameViewModel) {
                     enabled = bet + delta <= maxBet
                 ) { vm.updateHumanPendingBet(bet + delta) }
             }
-            ChipButton(label = "Min", enabled = true) { vm.updateHumanPendingBet(GameConstants.MIN_BET) }
+            ChipButton(label = "Min", enabled = true) { vm.updateHumanPendingBet(0) }
             ChipButton(label = "All", enabled = true) { vm.updateHumanPendingBet(maxBet) }
         }
 
         // Deal button
+        val dealEnabled = bet > 0
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
                 .background(
-                    Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
+                    if (dealEnabled) Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
+                    else Brush.verticalGradient(listOf(BjColors.Neutral.copy(alpha = 0.2f), BjColors.Neutral.copy(alpha = 0.1f)))
                 )
-                .clickable { vm.confirmBetsAndDeal() }
+                .clickable(enabled = dealEnabled) { vm.confirmBetsAndDeal() }
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 "Deal",
-                color = Color(0xFF1F1405),
+                color = if (dealEnabled) Color(0xFF1F1405) else Color.White.copy(alpha = 0.3f),
                 style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold)
             )
         }

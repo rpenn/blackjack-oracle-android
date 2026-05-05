@@ -39,10 +39,43 @@ object WinChance {
         val standEq = standEquity(eval.total, dealerDist)
         val optimalMemo = HashMap<Long, Double>()
         val hitEq = forcedHitEquity(eval.total, eval.isSoft, dealerDist, optimalMemo)
-        return WinChance(ifHit = hitEq * 100.0, ifStand = standEq * 100.0)
+
+        // New: Double down equity (exactly one card)
+        var doubleEq: Double? = null
+        if (playerCards.size == 2) {
+            doubleEq = exactlyOneHitEquity(eval.total, eval.isSoft, dealerDist) * 100.0
+        }
+
+        // New: Split equity (if pair)
+        var splitEq: Double? = null
+        if (playerCards.size == 2 && playerCards[0].rank == playerCards[1].rank) {
+            // Approximation: equity of one hand starting with this card
+            val singleCardEval = HandEvaluator.evaluate(listOf(playerCards[0]))
+            val memoSplit = HashMap<Long, Double>()
+            splitEq = forcedHitEquity(singleCardEval.total, singleCardEval.isSoft, dealerDist, memoSplit) * 100.0
+        }
+
+        return WinChance(
+            ifHit = hitEq * 100.0,
+            ifStand = standEq * 100.0,
+            ifDouble = doubleEq,
+            ifSplit = splitEq
+        )
     }
 
     // ---- Player side ----
+
+    /** Equity if player takes EXACTLY one card and then stands. */
+    private fun exactlyOneHitEquity(total: Int, isSoft: Boolean, dealerDist: DoubleArray): Double {
+        var equity = 0.0
+        for ((rank, prob) in rankProbs) {
+            val draw = applyDraw(total, isSoft, rank)
+            if (!draw.bust) {
+                equity += prob * standEquity(draw.total, dealerDist)
+            }
+        }
+        return equity
+    }
 
     /** Equity if player stands at [playerTotal] given dealer's outcome distribution. */
     private fun standEquity(playerTotal: Int, dealerDist: DoubleArray): Double {

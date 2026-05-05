@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjackoracle.engine.HandEvaluator
 import com.blackjackoracle.model.Card
-import com.blackjackoracle.model.GameConstants
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.PlayerAction
 import com.blackjackoracle.service.TtsService
@@ -160,14 +159,10 @@ fun GameTableScreen(vm: GameViewModel, tts: TtsService) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
                         .alpha(wcAlpha),
                     contentAlignment = Alignment.Center
                 ) {
-                    WinChanceRow(
-                        ifHit   = vm.state.winChance?.ifHit,
-                        ifStand = vm.state.winChance?.ifStand
-                    )
+                    WinChanceRow(vm.state.winChance)
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -478,15 +473,22 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
 // ─── Win-chance row (dedicated full-width, toggled by opacity) ────────────────
 
 @Composable
-private fun WinChanceRow(ifHit: Double?, ifStand: Double?) {
-    if (ifHit == null || ifStand == null) return
-    Row(
+private fun WinChanceRow(wc: com.blackjackoracle.model.WinChance?) {
+    if (wc == null) return
+    Column(
         modifier              = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment     = Alignment.CenterVertically
+        verticalArrangement   = Arrangement.spacedBy(4.dp),
+        horizontalAlignment   = Alignment.CenterHorizontally
     ) {
-        WinBar(label = "Hit",   pct = ifHit,   color = BjColors.InfoBlue, modifier = Modifier.weight(1f))
-        WinBar(label = "Stand", pct = ifStand, color = BjColors.Success,  modifier = Modifier.weight(1f))
+        WinBar(label = "Hit",   pct = wc.ifHit,   color = BjColors.InfoBlue)
+        WinBar(label = "Stand", pct = wc.ifStand, color = BjColors.Success)
+        wc.ifDouble?.let {
+            WinBar(label = "Double", pct = it, color = BjColors.Accent)
+        }
+        wc.ifSplit?.let {
+            WinBar(label = "Hand 1", pct = it, color = Color(0xFF915AE6))
+            WinBar(label = "Hand 2", pct = it, color = Color(0xFF915AE6))
+        }
     }
 }
 
@@ -498,14 +500,14 @@ private fun WinBar(label: String, pct: Double, color: Color, modifier: Modifier 
         label         = "winbar_$label"
     )
     Row(
-        modifier          = modifier,
+        modifier          = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(label, fontSize = 9.sp,
             color = Color.White.copy(alpha = 0.65f),
             style = TextStyle(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.width(30.dp))
+            modifier = Modifier.width(45.dp))
         Box(
             modifier = Modifier
                 .weight(1f).height(8.dp)
@@ -599,23 +601,28 @@ private fun BettingBar(vm: GameViewModel, onChipTapped: (Int) -> Unit) {
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.White.copy(alpha = 0.09f))
-                    .clickable { vm.updateHumanPendingBet(GameConstants.MIN_BET) }
+                    .clickable { vm.updateHumanPendingBet(0) }
                     .padding(horizontal = 10.dp, vertical = 7.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text("Clear", color = Color.White.copy(alpha = 0.70f),
                     style = TextStyle(fontSize = 11.sp))
             }
+            val dealEnabled = bet > 0
             Box(
                 modifier = Modifier
-                    .shadow(6.dp, RoundedCornerShape(10.dp))
+                    .shadow(if (dealEnabled) 6.dp else 0.dp, RoundedCornerShape(10.dp))
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft)))
-                    .clickable { vm.confirmBetsAndDeal() }
+                    .background(
+                        if (dealEnabled) Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
+                        else Brush.verticalGradient(listOf(BjColors.Neutral.copy(alpha = 0.2f), BjColors.Neutral.copy(alpha = 0.1f)))
+                    )
+                    .clickable(enabled = dealEnabled) { vm.confirmBetsAndDeal() }
                     .padding(horizontal = 18.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("DEAL", color = Color(0xFF1F0C02),
+                Text("DEAL", 
+                    color = if (dealEnabled) Color(0xFF1F0C02) else Color.White.copy(alpha = 0.3f),
                     style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold))
             }
         }
