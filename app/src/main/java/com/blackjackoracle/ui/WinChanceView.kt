@@ -42,7 +42,7 @@ fun WinChanceBars(wc: WinChance?, modifier: Modifier = Modifier) {
         Text(
             "Win Chance",
             color = Color.White.copy(alpha = 0.85f),
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
         )
         val hit = wc?.ifHit ?: 0.0
         val stand = wc?.ifStand ?: 0.0
@@ -76,7 +76,7 @@ private fun WinChanceBar(label: String, value: Double?, highlighted: Boolean) {
                 "if you $label",
                 color = if (highlighted) Color.White else Color.White.copy(alpha = 0.6f),
                 style = TextStyle(
-                    fontSize = 11.sp,
+                    fontSize = 22.sp,
                     fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal
                 )
             )
@@ -84,7 +84,7 @@ private fun WinChanceBar(label: String, value: Double?, highlighted: Boolean) {
                 if (value == null) "—" else "${value.roundToInt()}%",
                 color = color,
                 style = TextStyle(
-                    fontSize = if (highlighted) 14.sp else 12.sp,
+                    fontSize = if (highlighted) 28.sp else 24.sp,
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -92,7 +92,7 @@ private fun WinChanceBar(label: String, value: Double?, highlighted: Boolean) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (highlighted) 8.dp else 6.dp)
+                .height(if (highlighted) 16.dp else 12.dp)
                 .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(50))
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {

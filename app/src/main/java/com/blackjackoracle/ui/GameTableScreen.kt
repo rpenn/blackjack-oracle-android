@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -281,11 +282,11 @@ private fun DealerArea(vm: GameViewModel) {
 
         // Cards with per-card slide-in animation
         val count = vm.state.dealerCards.size
-        val cW    = if (count > 5) 40.dp else 50.dp
-        val cH    = if (count > 5) 57.dp else 71.dp
-        val gap   = if (count > 5) (-16).dp else (-20).dp
+        val cW    = if (count > 5) 56.dp else 70.dp
+        val cH    = if (count > 5) 80.dp else 100.dp
+        val gap   = if (count > 5) (-22).dp else (-28).dp
 
-        Box(modifier = Modifier.height(72.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.height(101.dp), contentAlignment = Alignment.Center) {
             Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                 vm.state.dealerCards.forEachIndexed { i, c ->
                     key(i) {
@@ -340,12 +341,14 @@ private fun TableInscription() {
         Text(
             "BLACKJACK PAYS 3 TO 2",
             color = Color.White.copy(alpha = 0.15f),
-            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
+            textAlign = TextAlign.Center,
+            style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 3.0.sp)
         )
         Text(
             "DEALER MUST DRAW TO 16 AND STAND ON ALL 17s",
             color = Color.White.copy(alpha = 0.10f),
-            style = TextStyle(fontSize = 8.sp, letterSpacing = 0.8.sp)
+            textAlign = TextAlign.Center,
+            style = TextStyle(fontSize = 16.sp, letterSpacing = 1.6.sp)
         )
     }
 }
@@ -388,14 +391,14 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         // Cards
-                        Row(horizontalArrangement = Arrangement.spacedBy((-22).dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy((-30).dp)) {
                             h.cards.forEachIndexed { ci, c ->
                                 key(ci) {
                                     AnimatedCardEntry(
                                         card     = c,
                                         faceDown = false,
-                                        width    = 50.dp,
-                                        height   = 71.dp
+                                        width    = 70.dp,
+                                        height   = 100.dp
                                     )
                                 }
                             }
@@ -490,28 +493,28 @@ private fun WinBar(label: String, pct: Double, color: Color, modifier: Modifier 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(label, fontSize = 9.sp,
+        Text(label, fontSize = 18.sp,
             color = Color.White.copy(alpha = 0.65f),
             style = TextStyle(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.width(45.dp))
+            modifier = Modifier.width(100.dp))
         Box(
             modifier = Modifier
-                .weight(1f).height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .weight(1f).height(12.dp)
+                .clip(RoundedCornerShape(6.dp))
                 .background(Color.White.copy(alpha = 0.12f))
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(fraction)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .background(color)
             )
         }
-        Text("${pct.toInt()}%", fontSize = 9.sp,
+        Text("${pct.toInt()}%", fontSize = 18.sp,
             color = color,
             style = TextStyle(fontWeight = FontWeight.Bold),
-            modifier = Modifier.width(32.dp))
+            modifier = Modifier.width(64.dp))
     }
 }
 
@@ -671,7 +674,7 @@ private fun ActionBar(vm: GameViewModel) {
         }
 
         Spacer(modifier = Modifier.width(8.dp))
-        TableBtn("DBL",   BjColors.InfoBlue, // Blue
+        TableBtn("DOUBLE",   BjColors.InfoBlue, // Blue
             active && PlayerAction.Double in avail) { vm.handlePlayerAction(PlayerAction.Double)  }
         
         Spacer(modifier = Modifier.width(8.dp))
@@ -947,7 +950,7 @@ private fun CasinoChipBtn(value: Int, currentBet: Int, maxChips: Int, enabledOve
 private fun TableBtn(title: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(width = 64.dp, height = 44.dp)
+            .size(width = 80.dp, height = 44.dp)
             .shadow(if (enabled) 4.dp else 0.dp, RoundedCornerShape(10.dp))
             .clip(RoundedCornerShape(10.dp))
             .background(if (enabled) color else color.copy(alpha = 0.25f))
