@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
@@ -27,13 +25,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.blackjackoracle.model.GameConstants
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.GameViewModel
 
 /**
- * Place-your-bet panel shown during BETTING phase. Combines a slider with
- * quick-add chip buttons (1, 5, 10, 25) and a Deal button.
+ * Place-your-bet panel shown during BETTING phase in Setup/Simplified screens.
+ * Redesigned to support $0 minimum bets and disabled Deal.
  */
 @Composable
 fun BettingControls(vm: GameViewModel) {

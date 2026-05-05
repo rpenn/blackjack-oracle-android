@@ -151,9 +151,16 @@ fun GameTableScreen(vm: GameViewModel, tts: TtsService) {
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                WoodRailLine()
+                // WoodRailLine() removed per user request
 
-                HumanZone(vm = vm, chipScale = chipScale)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1.5f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    HumanZone(vm = vm, chipScale = chipScale)
+                }
 
                 // Win-chance row — fixed height, opacity-toggled only
                 Box(
@@ -165,7 +172,7 @@ fun GameTableScreen(vm: GameViewModel, tts: TtsService) {
                     WinChanceRow(vm)
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             BottomRail(
@@ -249,19 +256,6 @@ private fun TableHeader(vm: GameViewModel, onQuit: () -> Unit, onHelp: () -> Uni
         }
 
         Spacer(modifier = Modifier.weight(1f))
-
-        // Chip count — permanent, never hidden, so layout never shifts
-        Column(
-            horizontalAlignment = Alignment.End,
-            modifier            = Modifier.width(56.dp)
-        ) {
-            Text("CHIPS", fontSize = 8.sp, color = Color.White.copy(alpha = 0.40f))
-            Text(
-                "$${vm.humanPlayer?.chips ?: 0}",
-                color = BjColors.Accent,
-                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            )
-        }
 
         IconButton(onClick = onHelp) {
             Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Help",
@@ -356,46 +350,34 @@ private fun TableInscription() {
     }
 }
 
-// ─── Wood rail divider ────────────────────────────────────────────────────────
-
-@Composable
-private fun WoodRailLine() {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Box(
-            modifier = Modifier.fillMaxWidth().height(10.dp).background(
-                Brush.horizontalGradient(listOf(WoodDark, WoodLight, Color(0xFF8A4B20), WoodLight, WoodDark))
-            )
-        )
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GoldEdge.copy(alpha = 0.45f)))
-    }
-}
-
 // ─── Human zone ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun HumanZone(vm: GameViewModel, chipScale: Float) {
     val human = vm.humanPlayer ?: return
-    Row(
+    Column(
         modifier              = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.Top
+        horizontalAlignment   = Alignment.CenterHorizontally,
+        verticalArrangement   = Arrangement.spacedBy(16.dp)
     ) {
         if (human.hands.isEmpty()) {
-            // Betting phase: show animated pending-bet chip stack in the dashed ring
+            // Betting phase: show animated pending-bet chip stack
             Box(
                 modifier         = Modifier
                     .size(110.dp, 86.dp)
                     .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                // Inner Box gets the scale — doesn't affect the outer ring's layout
                 Box(modifier = Modifier.scale(chipScale)) {
                     BetChipStack(amount = human.pendingBet)
                 }
             }
         } else {
-            // Play phase: inline card rendering with per-card deal animation
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Play phase: centered hands
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 human.hands.forEachIndexed { i, h ->
                     val isActive = vm.state.phase == GamePhase.PLAYER_TURNS &&
                         i == human.activeHandIndex
@@ -405,7 +387,7 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Cards — each new card slides in from above
+                        // Cards
                         Row(horizontalArrangement = Arrangement.spacedBy((-22).dp)) {
                             h.cards.forEachIndexed { ci, c ->
                                 key(ci) {
@@ -419,7 +401,7 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
                             }
                         }
 
-                        // Value / outcome badge (mirrors HandView style)
+                        // Value badge
                         val badgeText  = h.outcome ?: ev.displayString()
                         val badgeColor = when (h.outcome) {
                             "Win", "Blackjack" -> BjColors.Success
@@ -448,23 +430,20 @@ private fun HumanZone(vm: GameViewModel, chipScale: Float) {
                                 style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
                         }
 
-                        // Animated chip stack under the hand
                         BetChipStack(amount = h.bet)
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
         // Insurance badge (only when relevant)
         if (human.insuranceBet > 0) {
-            Column(horizontalAlignment = Alignment.End) {
-                Text("INS", fontSize = 7.sp,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("INSURANCE: ", fontSize = 8.sp,
                     color = Color.White.copy(alpha = 0.50f),
                     style = TextStyle(fontWeight = FontWeight.Bold))
                 Text("$${human.insuranceBet}", color = BjColors.Accent,
-                    style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold))
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold))
             }
         }
     }
@@ -483,15 +462,19 @@ private fun WinChanceRow(vm: GameViewModel) {
         verticalArrangement   = Arrangement.spacedBy(4.dp),
         horizontalAlignment   = Alignment.CenterHorizontally
     ) {
-        WinBar(label = "${handLabel}Hit",   pct = wc.ifHit,   color = BjColors.InfoBlue)
-        WinBar(label = "${handLabel}Stand", pct = wc.ifStand, color = BjColors.Success)
-        wc.ifDouble?.let {
-            WinBar(label = "Double", pct = it, color = BjColors.Accent)
-        }
+        // Order: Hit, Split, Double, Stand
+        WinBar(label = "${handLabel}Hit",   pct = wc.ifHit,   color = BjColors.Success)
+        
         wc.ifSplit?.let {
-            WinBar(label = "Hand 1", pct = it, color = Color(0xFF915AE6))
-            WinBar(label = "Hand 2", pct = it, color = Color(0xFF915AE6))
+            WinBar(label = "Hand 1", pct = it, color = BjColors.OrangeWarn)
+            WinBar(label = "Hand 2", pct = it, color = BjColors.OrangeWarn)
         }
+
+        wc.ifDouble?.let {
+            WinBar(label = "Double", pct = it, color = BjColors.InfoBlue)
+        }
+
+        WinBar(label = "${handLabel}Stand", pct = wc.ifStand, color = BjColors.Danger)
     }
 }
 
@@ -551,37 +534,100 @@ private fun BottomRail(
         Column(
             modifier            = Modifier.fillMaxWidth()
                 .padding(horizontal = 12.dp).padding(top = 8.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Row 1: Ask Oliver
             AdvisorButton(vm = vm, tts = tts)
 
-            when (vm.state.phase) {
-                GamePhase.BETTING -> BettingBar(vm, onChipTapped)
-                else              -> ActionBar(vm)
-            }
+            // Row 2: Clear / Bet Amount / Deal
+            MiddleBettingRow(vm)
+
+            // Row 3: Hand Action Buttons (Hit, Split, Double, Stand)
+            ActionBar(vm)
+
+            // Row 4: Chips and Balance
+            BottomBettingRow(vm, onChipTapped)
         }
     }
 }
 
-// ─── Betting bar ──────────────────────────────────────────────────────────────
-
 @Composable
-private fun BettingBar(vm: GameViewModel, onChipTapped: (Int) -> Unit) {
+private fun MiddleBettingRow(vm: GameViewModel) {
     val human = vm.humanPlayer ?: return
-    val bet   = human.pendingBet
-    val chips = human.chips
+    val bet = human.pendingBet
+    val isBetting = vm.state.phase == GamePhase.BETTING
 
     Row(
-        modifier              = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment     = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Clear Button
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isBetting) Color.White.copy(alpha = 0.09f) else Color.White.copy(alpha = 0.02f))
+                .clickable(enabled = isBetting) { vm.updateHumanPendingBet(0) }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Clear", color = if (isBetting) Color.White.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.20f),
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold))
+        }
+
+        // Bet Amount
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(80.dp)
+        ) {
+            Text("BET", fontSize = 8.sp, color = Color.White.copy(alpha = 0.45f))
+            Text("$$bet", color = if (isBetting) BjColors.Accent else BjColors.Accent.copy(alpha = 0.4f),
+                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+        }
+
+        // Deal Button
+        val dealEnabled = isBetting && bet > 0
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .shadow(if (dealEnabled) 6.dp else 0.dp, RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    if (dealEnabled) Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
+                    else Brush.verticalGradient(listOf(BjColors.Neutral.copy(alpha = 0.1f), BjColors.Neutral.copy(alpha = 0.05f)))
+                )
+                .clickable(enabled = dealEnabled) { vm.confirmBetsAndDeal() }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("DEAL",
+                color = if (dealEnabled) Color(0xFF1F0C02) else Color.White.copy(alpha = 0.2f),
+                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.ExtraBold))
+        }
+    }
+}
+
+@Composable
+private fun BottomBettingRow(vm: GameViewModel, onChipTapped: (Int) -> Unit) {
+    val human = vm.humanPlayer ?: return
+    val bet = human.pendingBet
+    val chips = human.chips
+    val isBetting = vm.state.phase == GamePhase.BETTING
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        // Chips
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(1, 5, 10, 25).forEach { value ->
                 CasinoChipBtn(
                     value      = value,
                     currentBet = bet,
                     maxChips   = chips,
+                    enabledOverride = isBetting,
                     onClick    = {
                         vm.updateHumanPendingBet(bet + value)
                         onChipTapped(value)
@@ -590,44 +636,14 @@ private fun BettingBar(vm: GameViewModel, onChipTapped: (Int) -> Unit) {
             }
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier            = Modifier.padding(horizontal = 4.dp)
-        ) {
-            Text("BET", fontSize = 8.sp, color = Color.White.copy(alpha = 0.45f))
-            Text("$$bet", color = BjColors.Accent,
-                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold))
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.09f))
-                    .clickable { vm.updateHumanPendingBet(0) }
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Clear", color = Color.White.copy(alpha = 0.70f),
-                    style = TextStyle(fontSize = 11.sp))
-            }
-            val dealEnabled = bet > 0
-            Box(
-                modifier = Modifier
-                    .shadow(if (dealEnabled) 6.dp else 0.dp, RoundedCornerShape(10.dp))
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (dealEnabled) Brush.verticalGradient(listOf(BjColors.Accent, BjColors.AccentSoft))
-                        else Brush.verticalGradient(listOf(BjColors.Neutral.copy(alpha = 0.2f), BjColors.Neutral.copy(alpha = 0.1f)))
-                    )
-                    .clickable(enabled = dealEnabled) { vm.confirmBetsAndDeal() }
-                    .padding(horizontal = 18.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("DEAL", 
-                    color = if (dealEnabled) Color(0xFF1F0C02) else Color.White.copy(alpha = 0.3f),
-                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold))
-            }
+        // Balance
+        Column(horizontalAlignment = Alignment.End) {
+            Text("BALANCE", fontSize = 8.sp, color = Color.White.copy(alpha = 0.40f))
+            Text(
+                "$$chips",
+                color = BjColors.Accent.copy(alpha = if (isBetting) 1f else 0.6f),
+                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            )
         }
     }
 }
@@ -644,16 +660,22 @@ private fun ActionBar(vm: GameViewModel) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        TableBtn("HIT",   BjColors.InfoBlue,
+        // Order: Hit, Split, Double, Stand
+        TableBtn("HIT",   BjColors.Success, // Green
             active && PlayerAction.Hit    in avail) { vm.handlePlayerAction(PlayerAction.Hit)    }
+        
+        if (PlayerAction.Split in avail) {
+            Spacer(modifier = Modifier.width(8.dp))
+            TableBtn("SPLIT", BjColors.OrangeWarn, // Yellow/Orange
+                active) { vm.handlePlayerAction(PlayerAction.Split) }
+        }
+
         Spacer(modifier = Modifier.width(8.dp))
-        TableBtn("DBL",   BjColors.Accent,
+        TableBtn("DBL",   BjColors.InfoBlue, // Blue
             active && PlayerAction.Double in avail) { vm.handlePlayerAction(PlayerAction.Double)  }
+        
         Spacer(modifier = Modifier.width(8.dp))
-        TableBtn("SPLIT", Color(0xFF915AE6),
-            active && PlayerAction.Split  in avail) { vm.handlePlayerAction(PlayerAction.Split)   }
-        Spacer(modifier = Modifier.width(8.dp))
-        TableBtn("STAND", BjColors.Success,
+        TableBtn("STAND", BjColors.Danger, // Red
             active && PlayerAction.Stand  in avail) { vm.handlePlayerAction(PlayerAction.Stand)   }
     }
 }
@@ -887,9 +909,9 @@ fun BetChipView(amount: Int) {
 // ─── Tappable casino chip button ──────────────────────────────────────────────
 
 @Composable
-private fun CasinoChipBtn(value: Int, currentBet: Int, maxChips: Int, onClick: () -> Unit) {
+private fun CasinoChipBtn(value: Int, currentBet: Int, maxChips: Int, enabledOverride: Boolean = true, onClick: () -> Unit) {
     val col     = chipColor(value)
-    val enabled = currentBet + value <= maxChips
+    val enabled = enabledOverride && currentBet + value <= maxChips
     Box(
         modifier = Modifier
             .size(44.dp)
