@@ -731,7 +731,7 @@ private fun RoundEndOverlay(vm: GameViewModel, tts: TtsService) {
                 .align(Alignment.Center)
                 .padding(30.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .background(Color(0xFF14202B).copy(alpha = 0.88f))
+                .background(Color(0xFF14202B).copy(alpha = 0.60f))
                 .border(1.dp, BjColors.Accent.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
                 .padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -745,13 +745,16 @@ private fun RoundEndOverlay(vm: GameViewModel, tts: TtsService) {
                     style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold))
             } else {
                 for (r in humanResults) {
-                    val c    = if (r.net > 0) BjColors.Success else if (r.net < 0) BjColors.Danger else BjColors.Neutral
-                    val sign = if (r.net > 0) "+" else ""
-                    Text(r.outcomeLabel, color = c,
+                    val c = if (r.net > 0) BjColors.Success else if (r.net < 0) BjColors.Danger else BjColors.Neutral
+                    val label = when (r.outcomeLabel) {
+                        "Win", "Blackjack", "Insurance won" -> "WIN"
+                        "Loss", "Bust", "Surrender", "Insurance lost" -> "LOSS"
+                        else -> r.outcomeLabel.uppercase()
+                    }
+                    val sign = if (r.net > 0) "+" else if (r.net < 0) "-" else ""
+                    val amountText = if (r.net != 0) " $sign $${kotlin.math.abs(r.net)}" else ""
+                    Text("$label$amountText", color = c,
                         style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold))
-                    Text("${r.handTotal} · $sign$$${r.net}",
-                        color = Color.White.copy(alpha = 0.80f),
-                        style = TextStyle(fontSize = 14.sp))
                 }
             }
             AdvisorButton(vm = vm, tts = tts, showHoot = true)
