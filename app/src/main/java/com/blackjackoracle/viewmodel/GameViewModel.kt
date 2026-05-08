@@ -33,7 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private object Timing {
-    const val DEAL_PER_CARD_MS = 220L
+    const val DEAL_PER_CARD_MS = 300L
     const val DEAL_TAIL_MS = 300L
     const val AI_THINK_MS = 750L
     const val DEALER_DRAW_MS = 750L
@@ -68,6 +68,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private var aiJob: Job? = null
     private var dealerJob: Job? = null
     private var dealJob: Job? = null
+    private var lastHumanBet: Int = 0
 
     // -------- Setup --------
 
@@ -142,6 +143,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         if (state.phase != GamePhase.BETTING) return
         val human = state.players.firstOrNull { it.isHuman } ?: return
         if (human.pendingBet <= 0 || human.pendingBet > human.chips) return
+        lastHumanBet = human.pendingBet
         startHand()
     }
 
@@ -150,43 +152,26 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private fun startHand() {
         if (shoe.needsReshuffle) shoe.reshuffle()
 
-        // Reset all players to fresh hands. Skip busted players (they sit out).
-        val players = state.players.map { p ->
-            if (p.isBusted) p
-            else p.copy(
+        val seats = state.players.indices.filter { !state.players[it].isBusted }
+        // Capture pending bets before clearing them.
+        val bets = state.players.map { it.pendingBet }
+
+        // Deduct bets and clear hands up front; chips are at risk from deal time.
+        val startPlayers = state.players.toMutableList()
+        for (idx in seats) {
+            val p = startPlayers[idx]
+            startPlayers[idx] = p.copy(
                 hands = persistentListOf(),
+                chips = p.chips - p.pendingBet,
+                pendingBet = 0,
                 activeHandIndex = 0,
                 insuranceBet = 0
             )
-        }.toMutableList()
-
-        // Deal the initial 2 cards to each non-busted player and the dealer.
-        // Casino order: one card to each player+dealer, then second card.
-        val seats = players.indices.filter { !players[it].isBusted }
-        val dealerCards = mutableListOf<Card>()
-        repeat(2) { pass ->
-            for (idx in seats) {
-                val p = players[idx]
-                val hand = p.hands.firstOrNull() ?: Hand(bet = p.pendingBet)
-                val updatedHand = hand.copy(cards = (hand.cards + shoe.deal()).toPersistentList())
-                val newHands = if (p.hands.isEmpty()) persistentListOf(updatedHand)
-                else (listOf(updatedHand) + p.hands.drop(1)).toPersistentList()
-                players[idx] = p.copy(hands = newHands)
-            }
-            dealerCards.add(shoe.deal())
-        }
-
-        // Deduct each player's bet from chips immediately (the chips are at risk).
-        for (i in players.indices) {
-            val p = players[i]
-            if (p.isBusted) continue
-            val bet = p.hands.firstOrNull()?.bet ?: 0
-            players[i] = p.copy(chips = p.chips - bet, pendingBet = 0)
         }
 
         state = state.copy(
-            players = players.toPersistentList(),
-            dealerCards = dealerCards.toPersistentList(),
+            players = startPlayers.toPersistentList(),
+            dealerCards = persistentListOf(),
             dealerHoleRevealed = false,
             phase = GamePhase.DEALING,
             currentPlayerIndex = 0,
@@ -196,11 +181,30 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             isDealAnimating = true,
             winChance = null
         )
-        sound.playInitialDeal(seats.size + 1)
 
-        // Brief animation pause then resolve naturals / insurance / first action.
+        // Deal cards one at a time in casino order: each seat then dealer, twice.
+        // Each card gets its own sound and delay so animation and audio are in sync.
         dealJob = viewModelScope.launch {
-            delay(seats.size * 2 * Timing.DEAL_PER_CARD_MS + Timing.DEAL_TAIL_MS)
+            repeat(2) {
+                for (idx in seats) {
+                    val card = shoe.deal()
+                    val players = state.players.toMutableList()
+                    val p = players[idx]
+                    val hand = p.hands.firstOrNull() ?: Hand(bet = bets[idx])
+                    val updatedHand = hand.copy(cards = (hand.cards + card).toPersistentList())
+                    val newHands = if (p.hands.isEmpty()) persistentListOf(updatedHand)
+                        else (listOf(updatedHand) + p.hands.drop(1)).toPersistentList()
+                    players[idx] = p.copy(hands = newHands)
+                    state = state.copy(players = players.toPersistentList())
+                    sound.playDeal()
+                    delay(Timing.DEAL_PER_CARD_MS)
+                }
+                val dealerCard = shoe.deal()
+                state = state.copy(dealerCards = (state.dealerCards + dealerCard).toPersistentList())
+                sound.playDeal()
+                delay(Timing.DEAL_PER_CARD_MS)
+            }
+            delay(Timing.DEAL_TAIL_MS)
             state = state.copy(isDealAnimating = false)
             postDealResolution()
         }
@@ -219,9 +223,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         // We don't auto-stand the human's blackjack here; we let it resolve normally.
 
         if (up.isAce) {
-            // Offer insurance to human (AIs always decline)
-            state = state.copy(phase = GamePhase.INSURANCE)
-            return
+            val humanForIns = state.players.firstOrNull { it.isHuman }
+            val mainBet = humanForIns?.hands?.firstOrNull()?.bet ?: 0
+            val insuranceCost = (mainBet / 2).coerceAtLeast(1)
+            if (humanForIns != null && humanForIns.chips >= insuranceCost) {
+                state = state.copy(phase = GamePhase.INSURANCE)
+                return
+            }
+            // Not enough chips for insurance — skip straight to player turns
         }
         if (up.isTen && hole.isAce) {
             // Dealer has blackjack — instant reveal + settle
@@ -516,6 +525,17 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             revealDealerAndSettle(reason = "All hands resolved")
             return
         }
+        // If every live hand is a natural blackjack, reveal and settle — no extra draws.
+        val anyNonBlackjackLive = state.players.any { p ->
+            !p.isBusted && p.hands.any { h ->
+                val ev = HandEvaluator.evaluate(h.cards)
+                !h.isSurrendered && !ev.isBust && !(ev.isBlackjack && !h.fromSplit)
+            }
+        }
+        if (!anyNonBlackjackLive) {
+            revealDealerAndSettle(reason = "Player blackjack")
+            return
+        }
         state = state.copy(
             phase = GamePhase.DEALER_TURN,
             dealerHoleRevealed = true
@@ -660,8 +680,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         val playerBJ = playerEval.isBlackjack && !hand.fromSplit
         val dealerBJ = dealerEval.isBlackjack
         if (playerBJ && !dealerBJ) {
-            // 3:2 payout. Total back = bet + bet*3/2.
-            val winnings = hand.bet * GameConstants.BLACKJACK_PAYOUT_NUM /
+            // 3:2 payout, rounded up to nearest dollar for odd bets.
+            val winnings = (hand.bet * GameConstants.BLACKJACK_PAYOUT_NUM + GameConstants.BLACKJACK_PAYOUT_DEN - 1) /
                 GameConstants.BLACKJACK_PAYOUT_DEN
             return "Blackjack" to (hand.bet + winnings)
         }
@@ -701,7 +721,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             state = state.copy(phase = GamePhase.GAME_OVER)
             return
         }
-        updateHumanPendingBet(GameConstants.MIN_BET)
+        val humanChips = human?.chips ?: 0
+        updateHumanPendingBet(lastHumanBet.coerceAtMost(humanChips))
         autoSetAIBets()
     }
 
