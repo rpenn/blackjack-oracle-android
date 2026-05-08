@@ -51,11 +51,13 @@ fun GameOverScreen(vm: GameViewModel) {
             )
             val human = sorted.firstOrNull { it.isHuman }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    if ((human?.chips ?: 0) > 0) "Cashed out at $${human?.chips}" else "You went bust",
-                    color = Color.White,
-                    style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                )
+                if ((human?.chips ?: 0) > 0) {
+                    Text(
+                        "Cashed out at $${human?.chips}",
+                        color = Color.White,
+                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    )
+                }
                 Text(
                     "${vm.state.handsPlayed} hands played",
                     color = BjColors.Success,
