@@ -54,16 +54,6 @@ class SoundManager(context: Context) {
         pool.play(playingCardId, 0.9f, 0.9f, 1, 0, 1f)
     }
 
-    /** Three quick deal sounds (initial 2-card-per-seat blackjack deal). */
-    fun playInitialDeal(seats: Int) {
-        scope.launch {
-            for (i in 0 until seats * 2) {
-                pool.play(playingCardId, 0.85f, 0.85f, 1, 0, 1f)
-                delay(110)
-            }
-        }
-    }
-
     fun playHit() {
         pool.play(playingCardId, 0.95f, 0.95f, 1, 0, 1f)
         haptic(15, 50)
