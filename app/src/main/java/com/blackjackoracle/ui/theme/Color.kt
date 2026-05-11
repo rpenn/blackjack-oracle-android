@@ -3,25 +3,26 @@ package com.blackjackoracle.ui.theme
 import androidx.compose.ui.graphics.Color
 
 object BjColors {
-    val BgTop = Color(0.06f, 0.14f, 0.18f, 1f)
-    val BgBottom = Color(0.02f, 0.08f, 0.11f, 1f)
+    val BgTop = Color(0xFF0F242E)
+    val BgBottom = Color(0xFF051015)
+    val FeltCenter = Color(0xFF1F7A38)
+    val FeltEdge = Color(0xFF0D3D1A)
+    val RailTop = Color(0xFF4A2A10)
+    val RailBottom = Color(0xFF3A1D08)
+    val Accent = Color(0xFFF2BF2E)
+    val AccentSoft = Color(0xFFFADB73)
+    val Danger = Color(0xFFF25959)
+    val Success = Color(0xFF59D18C)
+    val InfoBlue = Color(0xFF4D8CE6)
+    val Neutral = Color(0xFFE8E8EE)
+    val SplitYellow = Color(0xFFFFD600)
+    val TableGold = Color(0xFFF2CC0D)
 
-    val FeltTop = Color(0.10f, 0.42f, 0.42f, 1f)
-    val FeltBottom = Color(0.06f, 0.28f, 0.30f, 1f)
-
-    val Accent = Color(0.95f, 0.75f, 0.18f, 1f)
-    val AccentSoft = Color(0.98f, 0.85f, 0.45f, 1f)
-    val CardFace = Color.White
-    val CardBack = Color(0.18f, 0.30f, 0.55f, 1f)
-    val CardBackDeep = Color(0.10f, 0.18f, 0.38f, 1f)
-
-    val Danger = Color(0.95f, 0.35f, 0.35f, 1f)
-    val Success = Color(0.35f, 0.82f, 0.55f, 1f)
-    val Neutral = Color(0.85f, 0.85f, 0.88f, 1f)
-    val InfoBlue = Color(0.30f, 0.55f, 0.90f, 1f)
-    val OrangeWarn = Color(1.0f, 0.55f, 0.20f, 1f)
-
-    val GlassFill = Color(0.08f, 0.10f, 0.13f, 0.55f)
-    val GlassStroke = Color(1f, 1f, 1f, 0.12f)
-    val FeltShadow = Color(0f, 0f, 0f, 0.4f)
+    val ChipOne = Color(0xFFE0E0E0)
+    val ChipFive = Color(0xFFD62424)
+    val ChipTen = Color(0xFF2438C7)
+    val ChipTwentyFive = Color(0xFF249E3D)
+    val ChipHundred = Color(0xFF333333)
+    val ChipFiveHundred = Color(0xFF7B3FC7)
+    val ChipInner = Color(0xFF474747)
 }

@@ -1,8 +1,6 @@
 package com.blackjackoracle.model
 
 import androidx.compose.runtime.Immutable
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 sealed class PlayerAction {
     data object Hit : PlayerAction()
@@ -14,26 +12,15 @@ sealed class PlayerAction {
 
 @Immutable
 data class Player(
-    val id: String,
-    val name: String,
-    val chips: Int,
-    val isHuman: Boolean,
+    val id: String = GameConstants.HUMAN_PLAYER_ID,
+    val name: String = "You",
+    val chips: Int = GameConstants.STARTING_CHIPS,
+    val isHuman: Boolean = true,
     val isBusted: Boolean = false,
-    /**
-     * Hands held by the player this round. One after deal, more after splits.
-     * Empty between rounds.
-     */
-    val hands: ImmutableList<Hand> = persistentListOf(),
-    /**
-     * Index of the active hand (0..hands.size-1) while the player is acting.
-     * Meaningless once all hands resolved.
-     */
+    val hands: List<Hand> = emptyList(),
     val activeHandIndex: Int = 0,
-    /** Insurance side bet (half the original bet) — paid out 2:1 if dealer has BJ. */
     val insuranceBet: Int = 0,
-    /** Bet placed for the upcoming round (BETTING phase). */
-    val pendingBet: Int = 0,
-    val aiSkillLevel: Int = 3
+    val pendingBet: Int = 0
 ) {
     val activeHand: Hand? get() = hands.getOrNull(activeHandIndex)
 }

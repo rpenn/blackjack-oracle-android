@@ -9,90 +9,22 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import com.blackjackoracle.R
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Plays SFX without requesting audio focus, so the user's music keeps playing.
- */
-class SoundManager(context: Context) {
-    private val pool: SoundPool
-    private val playingCardId: Int
-    private val pokerChipsId: Int
-    private val foldId: Int
-
-    private val vibrator: Vibrator? = run {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vm?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
-    }
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    init {
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        pool = SoundPool.Builder()
-            .setMaxStreams(8)
-            .setAudioAttributes(attrs)
-            .build()
-        playingCardId = pool.load(context, R.raw.playing_card, 1)
-        pokerChipsId = pool.load(context, R.raw.poker_chips, 1)
-        foldId = pool.load(context, R.raw.fold, 1)
-    }
-
-    fun playDeal() {
-        pool.play(playingCardId, 0.9f, 0.9f, 1, 0, 1f)
-    }
-
-    fun playHit() {
-        pool.play(playingCardId, 0.95f, 0.95f, 1, 0, 1f)
-        haptic(15, 50)
-    }
-
-    fun playStand() {
-        // soft tick
-        pool.play(playingCardId, 0.35f, 0.35f, 1, 0, 1.5f)
-        haptic(15, 40)
-    }
-
-    fun playChips() {
-        pool.play(pokerChipsId, 1f, 1f, 1, 0, 1f)
-        haptic(25, 80)
-    }
-
-    fun playWin() {
-        pool.play(pokerChipsId, 1f, 1f, 1, 0, 1f)
-        haptic(50, 200)
-    }
-
-    fun playLose() {
-        pool.play(foldId, 0.85f, 0.85f, 1, 0, 1f)
-    }
-
-    private fun haptic(amplitude: Int, durationMs: Long) {
-        val v = vibrator ?: return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                v.vibrate(VibrationEffect.createOneShot(durationMs, amplitude.coerceIn(1, 255)))
-            } else {
-                @Suppress("DEPRECATION")
-                v.vibrate(durationMs)
-            }
-        } catch (_: SecurityException) { /* permission denied */ }
-    }
-
-    fun release() {
-        scope.cancel()
-        pool.release()
-    }
+class SoundManager(private val context: Context) {
+    private val pool = SoundPool.Builder().setMaxStreams(6).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()
+    private val deal = pool.load(context, R.raw.playing_card, 1)
+    private val chips = pool.load(context, R.raw.poker_chips, 1)
+    private val fold = pool.load(context, R.raw.fold, 1)
+    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= 31) context.getSystemService(VibratorManager::class.java)?.defaultVibrator else context.getSystemService(Vibrator::class.java)
+    fun playDeal() { pool.play(deal, 1f, 1f, 1, 0, 1f) }
+    fun playInitialDeal(scope: CoroutineScope, cards: Int) { repeat(cards) { i -> scope.launch { delay(i * 140L); playDeal() } } }
+    fun playHit() { playDeal(); buzz(18) }
+    fun playStand() { playDeal(); buzz(12) }
+    fun playChips() { pool.play(chips, 1f, 1f, 1, 0, 1f); buzz(28) }
+    fun playWin() { playChips() }
+    fun playLose() { pool.play(fold, 1f, 1f, 1, 0, 1f) }
+    private fun buzz(ms: Long) { if (Build.VERSION.SDK_INT >= 26) vibrator?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") vibrator?.vibrate(ms) }
+    fun release() = pool.release()
 }

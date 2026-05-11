@@ -1,0 +1,43 @@
+package com.blackjackoracle.engine
+
+import com.blackjackoracle.model.Card
+import com.blackjackoracle.model.WinChance
+
+object WinChanceCalculator {
+    private val ranks = listOf(2 to 1.0 / 13, 3 to 1.0 / 13, 4 to 1.0 / 13, 5 to 1.0 / 13, 6 to 1.0 / 13, 7 to 1.0 / 13, 8 to 1.0 / 13, 9 to 1.0 / 13, 10 to 4.0 / 13, 11 to 1.0 / 13)
+    fun compute(playerCards: List<Card>, dealerUp: Card, canSplit: Boolean): WinChance {
+        val value = HandEvaluator.evaluate(playerCards)
+        if (value.isBust) return WinChance(0.0, 0.0, 0.0, null)
+        val dealer = dealerDistribution(dealerUp)
+        val memo = HashMap<Long, Double>()
+        val hit = forcedHit(value.total, value.isSoft, dealer, memo) * 100
+        val stand = stand(value.total, dealer) * 100
+        val double = oneCardStand(value.total, value.isSoft, dealer) * 100
+        val split = if (canSplit && HandEvaluator.isPair(playerCards)) splitHand(playerCards[0], dealer) * 100 else null
+        return WinChance(hit, stand, double, split)
+    }
+    private fun splitHand(card: Card, dealer: DoubleArray): Double {
+        val start = HandEvaluator.evaluate(listOf(card)); val memo = HashMap<Long, Double>(); var e = 0.0
+        for ((rank, p) in ranks) { val d = draw(start.total, start.isSoft, rank); if (!d.bust) e += p * if (card.isAce) stand(d.total, dealer) else optimal(d.total, d.soft, dealer, memo) }
+        return e
+    }
+    private fun oneCardStand(total: Int, soft: Boolean, dealer: DoubleArray): Double { var e = 0.0; for ((rank, p) in ranks) { val d = draw(total, soft, rank); if (!d.bust) e += p * stand(d.total, dealer) }; return e }
+    private fun forcedHit(total: Int, soft: Boolean, dealer: DoubleArray, memo: HashMap<Long, Double>): Double { var e = 0.0; for ((rank, p) in ranks) { val d = draw(total, soft, rank); if (!d.bust) e += p * optimal(d.total, d.soft, dealer, memo) }; return e }
+    private fun optimal(total: Int, soft: Boolean, dealer: DoubleArray, memo: HashMap<Long, Double>): Double {
+        if (total >= 21) return stand(total, dealer)
+        val key = (total.toLong() shl 1) or if (soft) 1 else 0
+        return memo.getOrPut(key) { maxOf(stand(total, dealer), forcedHit(total, soft, dealer, memo)) }
+    }
+    private fun stand(player: Int, dealer: DoubleArray): Double { if (player > 21) return 0.0; var win = dealer[0]; var push = 0.0; for (t in 17..21) { val p = dealer[t - 16]; if (player > t) win += p else if (player == t) push += p }; return win + 0.5 * push }
+    private fun dealerDistribution(up: Card): DoubleArray = dealerFrom(up.blackjackValue, up.isAce, HashMap())
+    private fun dealerFrom(total: Int, soft: Boolean, memo: HashMap<Long, DoubleArray>): DoubleArray {
+        val key = (total.toLong() shl 1) or if (soft) 1 else 0
+        memo[key]?.let { return it.copyOf() }
+        val out = DoubleArray(6)
+        val stands = total >= 18 || (total == 17 && !soft)
+        if (total > 21) out[0] = 1.0 else if (stands) out[total - 16] = 1.0 else for ((rank, p) in ranks) { val d = draw(total, soft, rank); val sub = dealerFrom(d.total, d.soft, memo); for (i in out.indices) out[i] += p * sub[i] }
+        memo[key] = out.copyOf(); return out
+    }
+    private data class Draw(val total: Int, val soft: Boolean, val bust: Boolean)
+    private fun draw(total: Int, soft: Boolean, rank: Int): Draw = if (rank == 11) { val t = total + 11; if (t <= 21) Draw(t, true, false) else Draw(total + 1, soft, total + 1 > 21) } else { var t = total + rank; var s = soft; if (t > 21 && s) { t -= 10; s = false }; Draw(t, s, t > 21) }
+}
