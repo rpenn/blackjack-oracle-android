@@ -10,6 +10,7 @@ import com.blackjackoracle.game.BlackjackTable
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.model.PlayerAction
+import com.blackjackoracle.service.AdvisorContext
 import com.blackjackoracle.service.AdvisorPromptBuilder
 import com.blackjackoracle.service.AdvisorService
 import com.blackjackoracle.service.SoundManager
@@ -20,22 +21,36 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private object Timing {
+    const val DEAL_PER_CARD_MS = 140L
+    const val DEAL_TAIL_MS = 200L
+    const val DEALER_DRAW_MS = 750L
+    const val SETTLEMENT_MS = 600L
+    /// Brief pause after the hand is settled so the outcome badges land on the
+    /// cards before the round-end overlay covers everything. Matches iOS's
+    /// `roundEndDelay` of 0.70s.
+    const val ROUND_END_DELAY_MS = 750L
+}
+
 data class AdvisorUiState(
     val isLoading: Boolean = false,
     val statusLabel: String = "Tap for advice",
 )
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
+
     private val table = BlackjackTable()
     private val sound = SoundManager(app.applicationContext)
     private val advisor = AdvisorService()
     private val tts = TtsService(app.applicationContext)
-    private var job: Job? = null
-    private var askOliverJob: Job? = null
+
+    private var gameJob: Job? = null
+    private var askJob: Job? = null
     private var hootJob: Job? = null
-    private var lastAskAdviceKey: String? = null
+
+    private var lastAskKey: String? = null
     private var lastAskAdvice: String? = null
-    private var lastHootAdviceKey: String? = null
+    private var lastHootKey: String? = null
     private var lastHootAdvice: String? = null
 
     var state: GameState by mutableStateOf(table.state)
@@ -44,47 +59,106 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var advisorState: AdvisorUiState by mutableStateOf(AdvisorUiState())
         private set
 
-    var hootState: AdvisorUiState by mutableStateOf(AdvisorUiState(statusLabel = "Tap to hear what went down"))
+    var hootState: AdvisorUiState by mutableStateOf(
+        AdvisorUiState(statusLabel = "Tap to hear what went down"),
+    )
         private set
 
-    fun startGame() { cancel(); table.startGame(); sync() }
-    fun returnToSetup() { cancel(); table.returnToSetup(); sync() }
-    fun updateHumanPendingBet(amount: Int) { table.updatePendingBet(amount); sync() }
+    // MARK: - Setup / round lifecycle
+
+    fun startGame() {
+        cancelGame()
+        table.startGame()
+        sync()
+    }
+
+    fun returnToSetup() {
+        cancelGame()
+        table.returnToSetup()
+        sync()
+    }
+
+    fun updateHumanPendingBet(amount: Int) {
+        table.updatePendingBet(amount)
+        sync()
+    }
+
     fun availableActions(): Set<PlayerAction> = table.availableActions()
+
+    /// True while the human is on the clock — phase is PLAYER_TURNS, the deal
+    /// animation has finished, and the active hand isn't already standing.
+    /// Mirrors iOS `GameViewModel.isHumanTurn`.
+    val isHumanTurn: Boolean
+        get() {
+            val s = state
+            if (s.phase != GamePhase.PLAYER_TURNS || s.isDealAnimating) return false
+            return s.human.activeHand?.isStanding == false
+        }
 
     fun confirmBetsAndDeal() {
         if (state.phase != GamePhase.BETTING || state.human.pendingBet <= 0) return
-        cancel(); table.beginHand(); sync(); sound.playInitialDeal(viewModelScope, 4)
-        job = viewModelScope.launch {
+        cancelGame()
+        table.beginHand()
+        sync()
+        sound.playInitialDeal(viewModelScope, cards = 4)
+        gameJob = viewModelScope.launch {
             repeat(2) {
-                delay(140); table.dealInitialCardToHuman(); sync()
-                delay(140); table.dealInitialCardToDealer(); sync()
+                delay(Timing.DEAL_PER_CARD_MS)
+                table.dealInitialCardToHuman()
+                sync()
+                delay(Timing.DEAL_PER_CARD_MS)
+                table.dealInitialCardToDealer()
+                sync()
             }
-            delay(200); table.finishInitialDeal(); sync(); if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+            delay(Timing.DEAL_TAIL_MS)
+            table.finishInitialDeal()
+            sync()
+            if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
         }
     }
-    fun handleInsurance(take: Boolean) { table.handleInsurance(take); sync(); if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle() }
-    fun handlePlayerAction(action: PlayerAction) { table.handleAction(action); sync(); when (action) { PlayerAction.Hit -> sound.playHit(); PlayerAction.Stand -> sound.playStand(); PlayerAction.Double, PlayerAction.Split -> sound.playChips(); PlayerAction.Surrender -> sound.playStand() }; if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle() }
-    fun startNextHand() { cancel(); table.startNextHand(); sync() }
+
+    fun handleInsurance(take: Boolean) {
+        table.handleInsurance(take)
+        if (take) sound.playChips()
+        sync()
+        if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+    }
+
+    fun handlePlayerAction(action: PlayerAction) {
+        table.handleAction(action)
+        sync()
+        when (action) {
+            PlayerAction.Hit -> sound.playHit()
+            PlayerAction.Stand, PlayerAction.Surrender -> sound.playStand()
+            PlayerAction.Double, PlayerAction.Split -> sound.playChips()
+        }
+        if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+    }
+
+    fun startNextHand() {
+        cancelGame()
+        table.startNextHand()
+        sync()
+    }
+
+    // MARK: - Advisor
 
     fun requestAskOliverAdvice() {
         if (state.phase == GamePhase.ROUND_END || advisorState.isLoading) return
         val snapshot = state
+        val available = availableActions()
         val key = AdvisorPromptBuilder.cacheKey(snapshot)
-        askOliverJob?.cancel()
-        askOliverJob = viewModelScope.launch {
+        askJob?.cancel()
+        askJob = viewModelScope.launch {
             advisorState = AdvisorUiState(isLoading = true, statusLabel = "Thinking...")
             runCatching {
-                val text = if (lastAskAdviceKey == key && lastAskAdvice != null) {
-                    lastAskAdvice.orEmpty()
-                } else {
-                    withContext(Dispatchers.IO) {
-                        advisor.advice(AdvisorPromptBuilder.build(snapshot))
+                val text = lastAskAdvice.takeIf { lastAskKey == key && it != null }
+                    ?: withContext(Dispatchers.IO) {
+                        advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
                     }.also {
-                        lastAskAdviceKey = key
+                        lastAskKey = key
                         lastAskAdvice = it
                     }
-                }
                 advisorState = AdvisorUiState(isLoading = true, statusLabel = "Speaking...")
                 withContext(Dispatchers.IO) { tts.speak(text) }
             }.onFailure {
@@ -98,21 +172,19 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun requestOliversHoot() {
         if (state.phase != GamePhase.ROUND_END || hootState.isLoading) return
         val snapshot = state
+        val available = availableActions()
         val key = AdvisorPromptBuilder.cacheKey(snapshot)
         hootJob?.cancel()
         hootJob = viewModelScope.launch {
             hootState = AdvisorUiState(isLoading = true, statusLabel = "Thinking...")
             runCatching {
-                val text = if (lastHootAdviceKey == key && lastHootAdvice != null) {
-                    lastHootAdvice.orEmpty()
-                } else {
-                    withContext(Dispatchers.IO) {
-                        advisor.advice(AdvisorPromptBuilder.build(snapshot))
+                val text = lastHootAdvice.takeIf { lastHootKey == key && it != null }
+                    ?: withContext(Dispatchers.IO) {
+                        advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
                     }.also {
-                        lastHootAdviceKey = key
+                        lastHootKey = key
                         lastHootAdvice = it
                     }
-                }
                 hootState = AdvisorUiState(isLoading = true, statusLabel = "Speaking...")
                 withContext(Dispatchers.IO) { tts.speak(text) }
             }.onFailure {
@@ -123,18 +195,45 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // MARK: - Internals
+
     private fun runDealerAndSettle() {
-        cancel()
-        job = viewModelScope.launch {
-            while (table.dealerShouldDraw()) { delay(750); table.dealDealerCard(); sound.playDeal(); sync() }
-            delay(600); table.settleDealerTurn(); sync(); if (state.roundResults.any { it.net > 0 }) sound.playWin() else if (state.roundResults.any { it.net < 0 }) sound.playLose()
+        cancelGame()
+        gameJob = viewModelScope.launch {
+            while (table.dealerShouldDraw()) {
+                delay(Timing.DEALER_DRAW_MS)
+                table.dealDealerCard()
+                sound.playDeal()
+                sync()
+            }
+            delay(Timing.SETTLEMENT_MS)
+            table.settleDealerTurn()
+            sync()
+            val results = state.roundResults
+            when {
+                results.any { it.net > 0 } -> sound.playWin()
+                results.any { it.net < 0 } -> sound.playLose()
+            }
+            // Hold on the settled table so the player can see the outcome
+            // badges before the overlay covers them.
+            delay(Timing.ROUND_END_DELAY_MS)
+            table.completeRound()
+            sync()
         }
     }
-    private fun sync() { state = table.state }
-    private fun cancel() { job?.cancel(); job = null }
+
+    private fun sync() {
+        state = table.state
+    }
+
+    private fun cancelGame() {
+        gameJob?.cancel()
+        gameJob = null
+    }
+
     override fun onCleared() {
-        cancel()
-        askOliverJob?.cancel()
+        cancelGame()
+        askJob?.cancel()
         hootJob?.cancel()
         tts.release()
         sound.release()

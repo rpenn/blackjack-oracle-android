@@ -12,7 +12,8 @@ class BlackjackTableTest {
         table.startGame()
         assertEquals(GamePhase.BETTING, table.state.phase)
         assertEquals(GameConstants.STARTING_CHIPS, table.state.human.chips)
-        assertEquals(GameConstants.MIN_BET, table.state.human.pendingBet)
+        // First-time bet starts empty; subsequent rounds restore the last bet.
+        assertEquals(0, table.state.human.pendingBet)
         assertTrue(table.state.human.isHuman)
     }
 
@@ -35,6 +36,38 @@ class BlackjackTableTest {
         repeat(2) { table.dealInitialCardToHuman(); table.dealInitialCardToDealer() }
         table.finishInitialDeal()
         assertFalse(table.state.isDealAnimating)
-        assertTrue(table.state.phase == GamePhase.PLAYER_TURNS || table.state.phase == GamePhase.INSURANCE || table.state.phase == GamePhase.ROUND_END || table.state.phase == GamePhase.GAME_OVER)
+        // Possible post-deal phases:
+        // - PLAYER_TURNS: standard flow
+        // - INSURANCE: dealer shows Ace, player can afford insurance
+        // - DEALER_TURN: dealer BJ peeked, or player has a natural BJ that
+        //   auto-resolves; settlement is now driven asynchronously by the
+        //   ViewModel, so the table parks here until `completeRound`.
+        assertTrue(
+            table.state.phase == GamePhase.PLAYER_TURNS ||
+                table.state.phase == GamePhase.INSURANCE ||
+                table.state.phase == GamePhase.DEALER_TURN,
+        )
+    }
+
+    @Test fun completeRoundFlipsSettlementToRoundEndOrGameOver() {
+        val table = BlackjackTable()
+        table.startGame()
+        table.updatePendingBet(10)
+        table.beginHand()
+        // Synthesize a finished settlement directly by playing a normal hand
+        // through to completion. We can't deterministically trigger a loss, so
+        // we just verify the SETTLEMENT → ROUND_END flip API.
+        repeat(2) { table.dealInitialCardToHuman(); table.dealInitialCardToDealer() }
+        table.finishInitialDeal()
+        // Force-stand whatever hand we have to push through to dealer/settlement.
+        if (table.state.phase == GamePhase.PLAYER_TURNS) {
+            table.handleAction(com.blackjackoracle.model.PlayerAction.Stand)
+        }
+        // Drive the dealer to completion synchronously.
+        while (table.dealerShouldDraw()) table.dealDealerCard()
+        table.settleDealerTurn()
+        assertTrue(table.state.phase == GamePhase.SETTLEMENT)
+        table.completeRound()
+        assertTrue(table.state.phase == GamePhase.ROUND_END || table.state.phase == GamePhase.GAME_OVER)
     }
 }

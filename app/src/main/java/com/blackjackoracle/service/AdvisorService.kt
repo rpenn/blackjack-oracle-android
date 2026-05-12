@@ -7,15 +7,38 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
-class AdvisorService(private val client: OkHttpClient = OkHttpClient(), private val baseUrl: String = BuildConfig.ADVISOR_BASE_URL) {
+class AdvisorService(
+    private val client: OkHttpClient = defaultClient,
+    private val baseUrl: String = BuildConfig.ADVISOR_BASE_URL,
+) {
     fun advice(prompt: String): String {
-        val body = JSONObject(mapOf("game" to "blackjack", "prompt" to prompt)).toString().toRequestBody("application/json".toMediaType())
-        val response = client.newCall(Request.Builder().url("$baseUrl/api/advisor").post(body).build()).execute()
-        response.use {
-            if (!it.isSuccessful) throw IOException("Advisor failed: ${it.code}")
-            val text = it.body?.string()?.take(1_000_000) ?: throw IOException("Empty advisor response")
-            return JSONObject(text).getString("text")
+        val body = JSONObject(mapOf("game" to "blackjack", "prompt" to prompt))
+            .toString()
+            .toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url("$baseUrl/api/advisor")
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Advisor failed: ${response.code}")
+            val raw = response.body?.string()?.take(MAX_RESPONSE_BYTES)
+                ?: throw IOException("Empty advisor response")
+            return JSONObject(raw).getString("text")
+        }
+    }
+
+    companion object {
+        private const val MAX_RESPONSE_BYTES = 1_000_000
+        private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
+        private val defaultClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .callTimeout(20, TimeUnit.SECONDS)
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build()
         }
     }
 }

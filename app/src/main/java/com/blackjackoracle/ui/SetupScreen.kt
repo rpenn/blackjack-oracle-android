@@ -29,16 +29,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjackoracle.R
-import com.blackjackoracle.ui.components.GlassCard
 import com.blackjackoracle.ui.components.GoldButton
 import com.blackjackoracle.ui.theme.BjColors
+import com.blackjackoracle.ui.theme.BlackjackOracleTheme
 import com.blackjackoracle.viewmodel.GameViewModel
 
 @Composable
 fun SetupScreen(vm: GameViewModel) {
+    SetupContent(onStart = vm::startGame)
+}
+
+@Composable
+private fun SetupContent(onStart: () -> Unit) {
     var showHelp by remember { mutableStateOf(false) }
 
     Box(
@@ -52,7 +58,11 @@ fun SetupScreen(vm: GameViewModel) {
             onClick = { showHelp = true },
             modifier = Modifier.align(Alignment.TopEnd),
         ) {
-            Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "Help", tint = BjColors.Neutral.copy(alpha = 0.65f))
+            Icon(
+                Icons.AutoMirrored.Filled.Help,
+                contentDescription = "Help",
+                tint = BjColors.Neutral.copy(alpha = 0.65f),
+            )
         }
 
         Column(
@@ -60,21 +70,39 @@ fun SetupScreen(vm: GameViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("Blackjack Oracle", color = BjColors.Accent, fontSize = 38.sp, fontWeight = FontWeight.Black)
-            Text("Vegas rules, with Oliver at your side", color = BjColors.Neutral.copy(alpha = 0.9f), fontSize = 15.sp)
+            Text(
+                "Blackjack Oracle",
+                color = BjColors.Accent,
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                "Vegas rules, with Oliver at your side",
+                color = BjColors.Neutral.copy(alpha = 0.9f),
+                fontSize = 15.sp,
+            )
             Spacer(Modifier.height(32.dp))
-            Image(painterResource(R.drawable.oliver), contentDescription = "Oliver", modifier = Modifier.size(160.dp).clip(CircleShape))
-            Spacer(Modifier.height(30.dp))
-            GlassCard {
-                Text("Start: $100 · Min bet: $1 · Blackjack pays 3:2", color = BjColors.Neutral.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("Dealer hits soft 17 · 8-deck shoe", color = BjColors.Neutral.copy(alpha = 0.8f), fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(42.dp))
-            GoldButton("TAKE A SEAT", Modifier.fillMaxWidth()) { vm.startGame() }
+            Image(
+                painterResource(R.drawable.oliver),
+                contentDescription = "Oliver",
+                modifier = Modifier
+                    .size(160.dp)
+                    .clip(CircleShape),
+            )
+            Spacer(Modifier.height(50.dp))
+            GoldButton("TAKE A SEAT", Modifier.fillMaxWidth(), onClick = onStart)
         }
 
         if (showHelp) {
             HelpDialog(onDismiss = { showHelp = false })
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SetupPreview() {
+    BlackjackOracleTheme {
+        SetupContent(onStart = {})
     }
 }
