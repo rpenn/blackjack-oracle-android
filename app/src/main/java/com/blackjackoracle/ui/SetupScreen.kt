@@ -36,21 +36,16 @@ import com.blackjackoracle.R
 import com.blackjackoracle.ui.components.GoldButton
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
-import com.blackjackoracle.viewmodel.GameViewModel
 
 @Composable
-fun SetupScreen(vm: GameViewModel) {
-    SetupContent(onStart = vm::startGame)
-}
-
-@Composable
-private fun SetupContent(onStart: () -> Unit) {
+fun SetupScreen(onStart: () -> Unit) {
     var showHelp by remember { mutableStateOf(false) }
+    val backdrop = remember { Brush.verticalGradient(listOf(BjColors.BgTop, BjColors.BgBottom)) }
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(BjColors.BgTop, BjColors.BgBottom)))
+            .background(backdrop)
             .systemBarsPadding()
             .padding(22.dp),
     ) {
@@ -103,6 +98,6 @@ private fun SetupContent(onStart: () -> Unit) {
 @Composable
 private fun SetupPreview() {
     BlackjackOracleTheme {
-        SetupContent(onStart = {})
+        SetupScreen(onStart = {})
     }
 }

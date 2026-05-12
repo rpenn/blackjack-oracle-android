@@ -16,9 +16,7 @@ object BasicStrategy {
         canSurrender: Boolean,
     ): StrategyMove {
         val up = upIndex(dealerUpCard)
-        if (canSplit && HandEvaluator.isPair(playerCards) &&
-            pairAction(playerCards[0].rank, up) == StrategyMove.SPLIT
-        ) {
+        if (canSplit && HandEvaluator.isPair(playerCards) && shouldSplitPair(playerCards[0].rank, up)) {
             return StrategyMove.SPLIT
         }
         val value = HandEvaluator.evaluate(playerCards)
@@ -56,30 +54,32 @@ object BasicStrategy {
         else -> StrategyMove.HIT
     }
 
-    /// Pairs by effective rank: J/Q/K all collapse to 10; Ace stays at 14.
-    private fun pairAction(rank: Int, up: Int): StrategyMove {
+    /// True if a pair of `rank` should be split against dealer up-index `up`.
+    /// J/Q/K collapse to 10 for splitting purposes; Ace stays at 14. Pairs that
+    /// don't split (5,5 → treat as hard 10; 10,10 → never split) return false
+    /// and fall through to the soft/hard recommendation.
+    private fun shouldSplitPair(rank: Int, up: Int): Boolean {
         val effective = if (rank in 11..13) 10 else rank
         return when (effective) {
-            14 -> StrategyMove.SPLIT                                                       // A,A
-            10 -> StrategyMove.STAND                                                       // 10,10 — never split
-            9 -> if (up in 0..4 || up == 6 || up == 7) StrategyMove.SPLIT else StrategyMove.STAND
-            8 -> StrategyMove.SPLIT
-            7 -> if (up in 0..5) StrategyMove.SPLIT else StrategyMove.HIT
-            6 -> if (up in 0..5) StrategyMove.SPLIT else StrategyMove.HIT
-            5 -> StrategyMove.STAND                                                        // never split, treat as hard 10
-            4 -> if (up in 3..4) StrategyMove.SPLIT else StrategyMove.HIT
-            3, 2 -> if (up in 0..5) StrategyMove.SPLIT else StrategyMove.HIT
-            else -> StrategyMove.HIT
+            14 -> true                                                       // A,A
+            10 -> false                                                      // 10,10
+            9 -> up in 0..4 || up == 6 || up == 7                            // vs 2-6, 8, 9
+            8 -> true
+            7 -> up in 0..5                                                  // vs 2-7
+            6 -> up in 0..4                                                  // vs 2-6 (DAS) — never vs 7
+            5 -> false                                                       // treat as hard 10
+            4 -> up in 3..4                                                  // vs 5,6 (DAS)
+            3, 2 -> up in 0..5                                               // vs 2-7 (DAS)
+            else -> false
         }
     }
 
     private fun surrender(total: Int, soft: Boolean, up: Int): Boolean {
         if (soft) return false
         return when (total) {
-            14 -> up == 9
-            15 -> up == 8 || up == 9
-            16 -> up in 7..9
-            17 -> up == 9
+            15 -> up in 7..9                                                 // vs 9, 10, A (H17)
+            16 -> up in 7..9                                                 // vs 9, 10, A
+            17 -> up == 9                                                    // vs A (H17 only)
             else -> false
         }
     }

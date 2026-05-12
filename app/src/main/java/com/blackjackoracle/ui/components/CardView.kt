@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -23,25 +24,36 @@ import androidx.compose.ui.unit.sp
 import com.blackjackoracle.model.Card
 import com.blackjackoracle.ui.theme.BjColors
 
+// Single source of truth for card geometry — TableSections (dealer + player
+// rows) reuses these so a width change can't drift across files.
+// Sized down from iOS's 75×107 per user request — same 1.43 aspect ratio.
+val CardWidth: Dp = 65.dp
+val CardHeight: Dp = 93.dp
+// iOS uses -(width * 0.44) overlap for both dealer and player hands.
+val CardOverlap: Dp = (-29).dp
+
 /// Card face:
 ///   - rank in the top-left corner; rotated rank in the bottom-right
 ///   - small suit symbol in the opposite-side corner of each rank
 ///     (top-right and bottom-left)
 ///   - center suit symbol at 85% opacity, sized to clear the corner glyphs
-/// Font sizes scale to the card width — rank 0.28, corner suit 0.22, center 0.3575
-/// (the iOS 0.55 base, reduced 35% per user request to remove suit overlap).
+/// Font sizes scale to the card width — rank 0.28, corner suit 0.22, center
+/// 0.3575 (the iOS 0.55 base, reduced 35% per user request to remove suit
+/// overlap). Sizes are divided by `fontScale` so the system text-size
+/// preference doesn't blow glyphs past the corner padding on a fixed card.
 @Composable
 fun PlayingCard(
     card: Card,
     faceDown: Boolean,
     modifier: Modifier = Modifier,
-    width: Dp = 65.dp,
-    height: Dp = 93.dp,
+    width: Dp = CardWidth,
+    height: Dp = CardHeight,
 ) {
+    val fontScale = LocalDensity.current.fontScale
     val w = width.value
-    val rankSize = (w * 0.28f).sp
-    val cornerSuitSize = (w * 0.22f).sp
-    val centerSuitSize = (w * 0.3575f).sp
+    val rankSize = (w * 0.28f / fontScale).sp
+    val cornerSuitSize = (w * 0.22f / fontScale).sp
+    val centerSuitSize = (w * 0.3575f / fontScale).sp
 
     Box(
         modifier

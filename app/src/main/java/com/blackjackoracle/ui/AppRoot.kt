@@ -17,10 +17,18 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
         transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(250)) },
         label = "phase",
     ) { phase ->
+        // Exhaustive when — adding a phase forces a compile-time decision here
+        // rather than silently routing through GameTableScreen.
         when (phase) {
-            GamePhase.SETUP -> SetupScreen(vm)
+            GamePhase.SETUP -> SetupScreen(onStart = vm::startGame)
             GamePhase.GAME_OVER -> GameOverScreen(vm)
-            else -> GameTableScreen(vm)
+            GamePhase.BETTING,
+            GamePhase.DEALING,
+            GamePhase.INSURANCE,
+            GamePhase.PLAYER_TURNS,
+            GamePhase.DEALER_TURN,
+            GamePhase.SETTLEMENT,
+            GamePhase.ROUND_END -> GameTableScreen(vm)
         }
     }
 }

@@ -23,8 +23,11 @@ class AdvisorService(
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Advisor failed: ${response.code}")
-            val raw = response.body?.string()?.take(MAX_RESPONSE_BYTES)
-                ?: throw IOException("Empty advisor response")
+            // Cap the read at the okio source level — `.string()` buffers the
+            // entire body before truncation, which is the bug we're avoiding.
+            val source = (response.body ?: throw IOException("Empty advisor response")).source()
+            source.request(MAX_RESPONSE_BYTES.toLong())
+            val raw = source.readUtf8(minOf(source.buffer.size, MAX_RESPONSE_BYTES.toLong()))
             return JSONObject(raw).getString("text")
         }
     }

@@ -29,7 +29,11 @@ class BlackjackTable(
     private var lastBet: Int = GameConstants.MIN_BET
 
     fun startGame() {
-        if (shoe.needsReshuffle) shoe.reshuffle()
+        // Always start a new game with a fresh shuffle. Carrying shoe state
+        // across SetupScreen → startGame would quietly bias the win-chance
+        // bars on the first few hands relative to a player's mental model of
+        // "new game = fresh deck".
+        shoe.reshuffle()
         lastBet = GameConstants.MIN_BET
         // First-time bet starts empty; subsequent rounds restore `lastBet` in
         // `startNextHand`. Mirrors iOS, where `lastHumanBet = 0` on `startGame`.
@@ -113,18 +117,14 @@ class BlackjackTable(
     private fun postDealResolution() {
         val up = state.dealerCards.firstOrNull() ?: return
         val hole = state.dealerCards.getOrNull(1) ?: return
-        val mainBet = state.human.hands.firstOrNull()?.bet ?: 0
-        val canAffordInsurance = state.human.chips >= maxOf(1, mainBet / 2)
+        // Dealer Ace always parks at INSURANCE so the player at least sees the
+        // dialog. Affordability is enforced at the UI layer (Take button) and
+        // a 1s auto-decline timer in the ViewModel — keeping the game phase
+        // uniform here means the dealer-BJ peek logic in handleInsurance is
+        // the single source of truth for what happens next.
         if (up.isAce) {
-            if (canAffordInsurance) {
-                state = state.copy(phase = GamePhase.INSURANCE)
-                return
-            }
-            // Cannot afford insurance, but still peek for dealer blackjack.
-            if (hole.hasTenValue) {
-                revealDealerAndSettle("Dealer blackjack")
-                return
-            }
+            state = state.copy(phase = GamePhase.INSURANCE)
+            return
         }
         if (up.hasTenValue && hole.isAce) {
             revealDealerAndSettle("Dealer blackjack")

@@ -8,12 +8,8 @@ import com.blackjackoracle.model.WinChance
 /// dealer outcome distribution; mirrors the iOS reference implementation.
 object WinChanceCalculator {
 
-    private val ranks: List<Pair<Int, Double>> = listOf(
-        2 to 1.0 / 13, 3 to 1.0 / 13, 4 to 1.0 / 13, 5 to 1.0 / 13, 6 to 1.0 / 13,
-        7 to 1.0 / 13, 8 to 1.0 / 13, 9 to 1.0 / 13,
-        10 to 4.0 / 13,
-        11 to 1.0 / 13,
-    )
+    private val ranks: List<Pair<Int, Double>> =
+        (2..9).map { it to 1.0 / 13 } + (10 to 4.0 / 13) + (11 to 1.0 / 13)
 
     fun compute(playerCards: List<Card>, dealerUp: Card, canSplit: Boolean): WinChance {
         val value = HandEvaluator.evaluate(playerCards)
@@ -82,8 +78,37 @@ object WinChanceCalculator {
         return win + 0.5 * push
     }
 
-    private fun dealerDistribution(up: Card): DoubleArray =
-        dealerFrom(up.blackjackValue, up.isAce, HashMap())
+    /// Returns the dealer's outcome distribution conditioned on the post-peek
+    /// game state. When the up-card is an Ace, the hole card cannot be a
+    /// 10-value (else dealer would have shown blackjack and the player wouldn't
+    /// be deciding). When the up-card is a 10-value, the hole cannot be an Ace.
+    /// Other up-cards are unconditional. Failing to condition under-weights
+    /// dealer-bust outcomes by ~5 percentage points on Ace and 10 upcards.
+    private fun dealerDistribution(up: Card): DoubleArray {
+        val memo = HashMap<Long, DoubleArray>()
+        return when {
+            up.isAce -> conditionalHoleDistribution(up, memo, excludeRank = 10, excludedMass = 4.0 / 13)
+            up.hasTenValue -> conditionalHoleDistribution(up, memo, excludeRank = 11, excludedMass = 1.0 / 13)
+            else -> dealerFrom(up.blackjackValue, up.isAce, memo)
+        }
+    }
+
+    private fun conditionalHoleDistribution(
+        up: Card,
+        memo: HashMap<Long, DoubleArray>,
+        excludeRank: Int,
+        excludedMass: Double,
+    ): DoubleArray {
+        val out = DoubleArray(6)
+        val normalize = 1.0 / (1.0 - excludedMass)
+        for ((rank, p) in ranks) {
+            if (rank == excludeRank) continue
+            val d = draw(up.blackjackValue, up.isAce, rank)
+            val sub = dealerFrom(d.total, d.soft, memo)
+            for (i in out.indices) out[i] += p * normalize * sub[i]
+        }
+        return out
+    }
 
     private fun dealerFrom(total: Int, soft: Boolean, memo: HashMap<Long, DoubleArray>): DoubleArray {
         val key = (total.toLong() shl 1) or (if (soft) 1 else 0).toLong()

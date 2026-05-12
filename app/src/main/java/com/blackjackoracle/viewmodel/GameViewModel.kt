@@ -15,6 +15,7 @@ import com.blackjackoracle.service.AdvisorPromptBuilder
 import com.blackjackoracle.service.AdvisorService
 import com.blackjackoracle.service.SoundManager
 import com.blackjackoracle.service.TtsService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,9 +28,12 @@ private object Timing {
     const val DEALER_DRAW_MS = 750L
     const val SETTLEMENT_MS = 600L
     /// Brief pause after the hand is settled so the outcome badges land on the
-    /// cards before the round-end overlay covers everything. Matches iOS's
-    /// `roundEndDelay` of 0.70s.
+    /// cards before the round-end overlay covers everything.
     const val ROUND_END_DELAY_MS = 750L
+    /// How long the insurance dialog lingers before the ViewModel auto-declines
+    /// for a player who can't afford the bet. Long enough to read the dialog,
+    /// short enough that the broke player isn't left staring at a popup.
+    const val INSURANCE_AUTO_DECLINE_MS = 1000L
 }
 
 data class AdvisorUiState(
@@ -47,6 +51,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private var gameJob: Job? = null
     private var askJob: Job? = null
     private var hootJob: Job? = null
+    private var insuranceAutoDeclineJob: Job? = null
 
     private var lastAskKey: String? = null
     private var lastAskAdvice: String? = null
@@ -64,7 +69,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     )
         private set
 
-    // MARK: - Setup / round lifecycle
+    // Setup / round lifecycle
 
     fun startGame() {
         cancelGame()
@@ -73,9 +78,19 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun returnToSetup() {
-        cancelGame()
+        stopAllJobsAndAudio()
         table.returnToSetup()
         sync()
+    }
+
+    /// Called by the host activity on STOP/background — kill any in-flight TTS
+    /// so Oliver doesn't keep narrating once the user has left the app.
+    fun stopSpeaking() {
+        askJob?.cancel(); askJob = null
+        hootJob?.cancel(); hootJob = null
+        tts.stop()
+        advisorState = AdvisorUiState(statusLabel = "Tap for advice")
+        hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
     }
 
     fun updateHumanPendingBet(amount: Int) {
@@ -85,9 +100,17 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun availableActions(): Set<PlayerAction> = table.availableActions()
 
+    /// True if the player has the chips to actually pay an insurance bet
+    /// (half the main bet, minimum $1). Drives the Take Insurance button's
+    /// enabled state and the auto-decline timer.
+    fun canAffordInsurance(): Boolean {
+        val s = state
+        val bet = s.human.hands.firstOrNull()?.bet ?: return false
+        return s.human.chips >= maxOf(1, bet / 2)
+    }
+
     /// True while the human is on the clock — phase is PLAYER_TURNS, the deal
     /// animation has finished, and the active hand isn't already standing.
-    /// Mirrors iOS `GameViewModel.isHumanTurn`.
     val isHumanTurn: Boolean
         get() {
             val s = state
@@ -113,15 +136,38 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             delay(Timing.DEAL_TAIL_MS)
             table.finishInitialDeal()
             sync()
-            if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+            // Run the dealer flow inline on this same coroutine when the deal
+            // resolved straight to DEALER_TURN (player BJ, dealer BJ peek).
+            // Launching a separate coroutine here used to require cancelling
+            // the current one, which cancels ourselves mid-block.
+            when {
+                state.phase == GamePhase.DEALER_TURN -> runDealerAndSettleInline()
+                state.phase == GamePhase.INSURANCE && !canAffordInsurance() ->
+                    scheduleInsuranceAutoDecline()
+            }
         }
     }
 
     fun handleInsurance(take: Boolean) {
+        insuranceAutoDeclineJob?.cancel(); insuranceAutoDeclineJob = null
         table.handleInsurance(take)
         if (take) sound.playChips()
         sync()
-        if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+        if (state.phase == GamePhase.DEALER_TURN) launchDealerFlow()
+    }
+
+    /// Shows the insurance dialog for [Timing.INSURANCE_AUTO_DECLINE_MS] and
+    /// then routes through `handleInsurance(false)` — same code path as the
+    /// player tapping "No Thanks", so the dealer-BJ peek and the transition
+    /// to PLAYER_TURNS / DEALER_TURN both stay in one place.
+    private fun scheduleInsuranceAutoDecline() {
+        insuranceAutoDeclineJob?.cancel()
+        insuranceAutoDeclineJob = viewModelScope.launch {
+            delay(Timing.INSURANCE_AUTO_DECLINE_MS)
+            // Re-check phase: a manual tap or returnToSetup may have moved us
+            // off INSURANCE while the timer was suspended.
+            if (state.phase == GamePhase.INSURANCE) handleInsurance(false)
+        }
     }
 
     fun handlePlayerAction(action: PlayerAction) {
@@ -132,7 +178,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             PlayerAction.Stand, PlayerAction.Surrender -> sound.playStand()
             PlayerAction.Double, PlayerAction.Split -> sound.playChips()
         }
-        if (state.phase == GamePhase.DEALER_TURN) runDealerAndSettle()
+        if (state.phase == GamePhase.DEALER_TURN) launchDealerFlow()
     }
 
     fun startNextHand() {
@@ -141,85 +187,91 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         sync()
     }
 
-    // MARK: - Advisor
+    // Advisor
 
     fun requestAskOliverAdvice() {
         if (state.phase == GamePhase.ROUND_END || advisorState.isLoading) return
-        val snapshot = state
-        val available = availableActions()
-        val key = AdvisorPromptBuilder.cacheKey(snapshot)
         askJob?.cancel()
-        askJob = viewModelScope.launch {
-            advisorState = AdvisorUiState(isLoading = true, statusLabel = "Thinking...")
-            runCatching {
-                val text = lastAskAdvice.takeIf { lastAskKey == key && it != null }
-                    ?: withContext(Dispatchers.IO) {
-                        advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
-                    }.also {
-                        lastAskKey = key
-                        lastAskAdvice = it
-                    }
-                advisorState = AdvisorUiState(isLoading = true, statusLabel = "Speaking...")
-                withContext(Dispatchers.IO) { tts.speak(text) }
-            }.onFailure {
-                advisorState = AdvisorUiState(statusLabel = "Advice unavailable")
-                return@launch
-            }
-            advisorState = AdvisorUiState(statusLabel = "Tap for advice")
-        }
+        askJob = launchAdvisor(
+            idleLabel = "Tap for advice",
+            failLabel = "Advice unavailable",
+            setState = { advisorState = it },
+            getCached = { k -> lastAskAdvice.takeIf { lastAskKey == k && it != null } },
+            putCached = { k, t -> lastAskKey = k; lastAskAdvice = t },
+        )
     }
 
     fun requestOliversHoot() {
         if (state.phase != GamePhase.ROUND_END || hootState.isLoading) return
+        hootJob?.cancel()
+        hootJob = launchAdvisor(
+            idleLabel = "Tap to hear what went down",
+            failLabel = "Hoot unavailable",
+            setState = { hootState = it },
+            getCached = { k -> lastHootAdvice.takeIf { lastHootKey == k && it != null } },
+            putCached = { k, t -> lastHootKey = k; lastHootAdvice = t },
+        )
+    }
+
+    // Internals
+
+    /// Shared advisor pipeline: cache lookup → HTTP call → TTS playback (which
+    /// now suspends until audio finishes). The lambdas factor out the per-lane
+    /// state holders so Ask Oliver and Oliver's Hoot share one launch site.
+    private fun launchAdvisor(
+        idleLabel: String,
+        failLabel: String,
+        setState: (AdvisorUiState) -> Unit,
+        getCached: (key: String) -> String?,
+        putCached: (key: String, advice: String) -> Unit,
+    ): Job {
         val snapshot = state
         val available = availableActions()
         val key = AdvisorPromptBuilder.cacheKey(snapshot)
-        hootJob?.cancel()
-        hootJob = viewModelScope.launch {
-            hootState = AdvisorUiState(isLoading = true, statusLabel = "Thinking...")
-            runCatching {
-                val text = lastHootAdvice.takeIf { lastHootKey == key && it != null }
-                    ?: withContext(Dispatchers.IO) {
-                        advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
-                    }.also {
-                        lastHootKey = key
-                        lastHootAdvice = it
-                    }
-                hootState = AdvisorUiState(isLoading = true, statusLabel = "Speaking...")
-                withContext(Dispatchers.IO) { tts.speak(text) }
-            }.onFailure {
-                hootState = AdvisorUiState(statusLabel = "Hoot unavailable")
+        return viewModelScope.launch {
+            setState(AdvisorUiState(isLoading = true, statusLabel = "Thinking..."))
+            try {
+                val text = getCached(key) ?: withContext(Dispatchers.IO) {
+                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
+                }.also { putCached(key, it) }
+                setState(AdvisorUiState(isLoading = true, statusLabel = "Speaking..."))
+                tts.speak(text)
+            } catch (e: CancellationException) {
+                // Don't swallow cancellation — let the job complete cleanly.
+                throw e
+            } catch (_: Throwable) {
+                setState(AdvisorUiState(statusLabel = failLabel))
                 return@launch
             }
-            hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
+            setState(AdvisorUiState(statusLabel = idleLabel))
         }
     }
 
-    // MARK: - Internals
-
-    private fun runDealerAndSettle() {
-        cancelGame()
-        gameJob = viewModelScope.launch {
-            while (table.dealerShouldDraw()) {
-                delay(Timing.DEALER_DRAW_MS)
-                table.dealDealerCard()
-                sound.playDeal()
-                sync()
-            }
-            delay(Timing.SETTLEMENT_MS)
-            table.settleDealerTurn()
-            sync()
-            val results = state.roundResults
-            when {
-                results.any { it.net > 0 } -> sound.playWin()
-                results.any { it.net < 0 } -> sound.playLose()
-            }
-            // Hold on the settled table so the player can see the outcome
-            // badges before the overlay covers them.
-            delay(Timing.ROUND_END_DELAY_MS)
-            table.completeRound()
+    private suspend fun runDealerAndSettleInline() {
+        while (table.dealerShouldDraw()) {
+            delay(Timing.DEALER_DRAW_MS)
+            table.dealDealerCard()
+            sound.playDeal()
             sync()
         }
+        delay(Timing.SETTLEMENT_MS)
+        table.settleDealerTurn()
+        sync()
+        val results = state.roundResults
+        when {
+            results.any { it.net > 0 } -> sound.playWin()
+            results.any { it.net < 0 } -> sound.playLose()
+        }
+        // Hold on the settled table so the player can see the outcome badges
+        // before the overlay covers them.
+        delay(Timing.ROUND_END_DELAY_MS)
+        table.completeRound()
+        sync()
+    }
+
+    private fun launchDealerFlow() {
+        cancelGame()
+        gameJob = viewModelScope.launch { runDealerAndSettleInline() }
     }
 
     private fun sync() {
@@ -231,11 +283,16 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         gameJob = null
     }
 
+    private fun stopAllJobsAndAudio() {
+        gameJob?.cancel(); gameJob = null
+        askJob?.cancel(); askJob = null
+        hootJob?.cancel(); hootJob = null
+        insuranceAutoDeclineJob?.cancel(); insuranceAutoDeclineJob = null
+        tts.stop()
+    }
+
     override fun onCleared() {
-        cancelGame()
-        askJob?.cancel()
-        hootJob?.cancel()
-        tts.release()
+        stopAllJobsAndAudio()
         sound.release()
         super.onCleared()
     }

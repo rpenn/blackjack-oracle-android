@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,10 +59,13 @@ fun BottomRail(
 ) {
     val state = vm.state
     val showWinChanceLabel = vm.isHumanTurn && state.winChance != null
+    val railGradient = remember {
+        Brush.verticalGradient(listOf(BjColors.RailTop, BjColors.RailBottom))
+    }
     Column(
         modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(BjColors.RailTop, BjColors.RailBottom)))
+            .background(railGradient)
             .padding(start = 14.dp, top = 10.dp, end = 14.dp, bottom = 6.dp)
             .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -96,7 +100,7 @@ private fun isAskOliverEnabled(state: GameState): Boolean =
     state.phase != GamePhase.ROUND_END &&
         (state.phase != GamePhase.BETTING || state.human.pendingBet > 0)
 
-// MARK: - Info row (Balance | Oliver pill | Win chance label)
+// Info row (Balance | Oliver pill | Win chance label)
 
 @Composable
 private fun InfoRow(
@@ -203,7 +207,7 @@ private fun OliverPill(
     }
 }
 
-// MARK: - Round-end overlay's Oliver button (full-width, keeps the rich style)
+//Round-end overlay's Oliver button (full-width, keeps the rich style)
 
 @Composable
 private fun OliversHootButton(vm: GameViewModel) {
@@ -275,7 +279,7 @@ private fun OliverAdvisorButton(
     }
 }
 
-// MARK: - Betting / action rows (no Balance — that's in the info row now)
+//Betting / action rows (no Balance — that's in the info row now)
 
 @Composable
 private fun BettingControls(
@@ -315,7 +319,8 @@ private fun BettingControls(
 
 @Composable
 private fun ActionControls(vm: GameViewModel) {
-    val actions = vm.availableActions()
+    val state = vm.state
+    val actions = remember(state) { vm.availableActions() }
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
@@ -350,7 +355,9 @@ private fun ActionButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(width = 78.dp, height = 44.dp),
+        // 48dp height matches the Material 3 minimum touch-target spec; the
+        // accessibility scanner flagged 44dp on the previous rev.
+        modifier = Modifier.size(width = 78.dp, height = 48.dp),
         // Default Material3 contentPadding is horizontal=24dp which leaves only
         // ~30dp of text room inside a 78dp button — long labels (DOUBLE, STAND,
         // SPLIT) get clipped. Override so the full button width is usable.
@@ -370,7 +377,7 @@ private fun ActionButton(
     }
 }
 
-// MARK: - Equity bars (label is in InfoRow above — bars only here)
+//Equity bars (label is in InfoRow above — bars only here)
 
 @Composable
 private fun WinBars(
@@ -433,7 +440,7 @@ private fun WinBars(
     }
 }
 
-// MARK: - Round-end overlay
+//Round-end overlay
 
 @Composable
 fun RoundEndOverlay(vm: GameViewModel) {
@@ -485,5 +492,5 @@ internal fun chipColor(value: Int): Color = when (value) {
     25 -> BjColors.ChipTwentyFive
     100 -> BjColors.ChipHundred
     500 -> BjColors.ChipFiveHundred
-    else -> BjColors.ChipHundred
+    else -> error("unknown chip value: $value")
 }

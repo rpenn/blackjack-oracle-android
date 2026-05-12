@@ -40,22 +40,24 @@ fun ChipButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    // 48dp meets Material 3 accessibility minimum — chip art scales with the
+    // button so the tap area and the visual stay aligned.
     Box(
         Modifier
-            .size(42.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .clickable(enabled = enabled) { onClick() }
             .graphicsLayer { alpha = if (enabled) 1f else 0.38f },
         contentAlignment = Alignment.Center,
     ) {
-        ChipView(value, 42)
+        ChipView(value, 48)
         Text(
             text = "$$value",
             color = Color.White,
             fontSize = when {
-                value >= 500 -> 8.sp
-                value >= 10 -> 9.sp
-                else -> 11.sp
+                value >= 500 -> 9.sp
+                value >= 10 -> 10.sp
+                else -> 12.sp
             },
             fontWeight = FontWeight.Black,
             maxLines = 1,
@@ -74,7 +76,7 @@ private fun ChipView(value: Int, size: Int) {
         25 -> BjColors.ChipTwentyFive
         100 -> BjColors.ChipHundred
         500 -> BjColors.ChipFiveHundred
-        else -> BjColors.ChipHundred
+        else -> error("unknown chip value: $value")
     }
 
     Box(

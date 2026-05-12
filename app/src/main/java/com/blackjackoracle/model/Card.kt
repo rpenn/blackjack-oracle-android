@@ -15,7 +15,7 @@ enum class Suit(val symbol: String, val suitWord: String) {
 @Immutable
 data class Card(val suit: Suit, val rank: Int) : Serializable {
 
-    val id: String get() = "$rank-${suit.name.lowercase()}"
+    val id: String = "$rank-${suit.name.lowercase()}"
 
     /// Blackjack base value: A=11 (soft), J/Q/K=10, else face value.
     val blackjackValue: Int get() = when (rank) {

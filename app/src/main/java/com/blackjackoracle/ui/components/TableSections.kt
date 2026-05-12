@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,13 +33,6 @@ import com.blackjackoracle.engine.HandEvaluator
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.ui.theme.BjColors
-
-// Sized down from iOS's 75×107 per user request — same 1.43 aspect ratio.
-private val CARD_WIDTH = 65.dp
-private val CARD_HEIGHT = 93.dp
-
-// iOS uses -(width * 0.44) overlap for both dealer and player hands.
-private val CARD_OVERLAP = (-29).dp
 
 @Composable
 fun GameHeader(
@@ -71,23 +65,24 @@ fun DealerArea(state: GameState) {
     // Fixed-height row so dealer turn (hole-card flip, dealer draws) never
     // shifts the player area vertically.
     Row(
-        horizontalArrangement = Arrangement.spacedBy(CARD_OVERLAP),
-        modifier = Modifier.height(CARD_HEIGHT + 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(CardOverlap),
+        modifier = Modifier.height(CardHeight + 5.dp),
     ) {
         state.dealerCards.forEachIndexed { index, card ->
             PlayingCard(
                 card = card,
                 faceDown = index == 1 && !state.dealerHoleRevealed,
-                width = CARD_WIDTH,
-                height = CARD_HEIGHT,
+                width = CardWidth,
+                height = CardHeight,
             )
         }
     }
-    val upCard = state.dealerCards.firstOrNull()
-    val dealerLabel = if (state.dealerHoleRevealed && state.dealerCards.isNotEmpty()) {
-        HandEvaluator.evaluate(state.dealerCards).displayString()
-    } else {
-        upCard?.let { "shows ${it.displayString}" }.orEmpty()
+    val dealerLabel = remember(state.dealerCards, state.dealerHoleRevealed) {
+        if (state.dealerHoleRevealed && state.dealerCards.isNotEmpty()) {
+            HandEvaluator.evaluate(state.dealerCards).displayString()
+        } else {
+            state.dealerCards.firstOrNull()?.let { "shows ${it.displayString}" }.orEmpty()
+        }
     }
     Text(dealerLabel, color = BjColors.Neutral.copy(alpha = 0.65f), fontSize = 13.sp)
     // Always rendered so its height is reserved from the first frame —
@@ -151,9 +146,9 @@ fun PlayerArea(state: GameState) {
                 // anchored at the same Y position from the empty-hand frame
                 // through the final card, so no vertical shift when cards arrive.
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(CARD_OVERLAP),
+                    horizontalArrangement = Arrangement.spacedBy(CardOverlap),
                     modifier = Modifier
-                        .height(CARD_HEIGHT)
+                        .height(CardHeight)
                         .then(
                             if (highlightActive) {
                                 Modifier.border(
@@ -168,8 +163,8 @@ fun PlayerArea(state: GameState) {
                         PlayingCard(
                             card = card,
                             faceDown = false,
-                            width = CARD_WIDTH,
-                            height = CARD_HEIGHT,
+                            width = CardWidth,
+                            height = CardHeight,
                         )
                     }
                 }

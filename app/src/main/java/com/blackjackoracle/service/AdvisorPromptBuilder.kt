@@ -59,7 +59,7 @@ object AdvisorPromptBuilder {
     fun build(context: AdvisorContext): String =
         if (context.phase == GamePhase.ROUND_END) buildSummary(context) else buildAdvice(context)
 
-    // MARK: - In-hand advice prompt
+    // In-hand advice prompt
 
     private fun buildAdvice(c: AdvisorContext): String {
         val handCards = if (c.playerCards.isEmpty()) "none" else c.playerCards.joinToString(", ") { it.spokenString }
@@ -124,7 +124,7 @@ object AdvisorPromptBuilder {
         """.trimIndent()
     }
 
-    // MARK: - Round-end recap prompt
+    // Round-end recap prompt
 
     private fun buildSummary(c: AdvisorContext): String {
         val dealerUp = c.dealerCards.firstOrNull()?.let(::describeCard) ?: "unknown"
@@ -173,7 +173,7 @@ object AdvisorPromptBuilder {
         """.trimIndent()
     }
 
-    // MARK: - Helpers
+    // Helpers
 
     private fun renderHistory(log: List<HandActionLog>): String =
         log.joinToString("\n") { entry ->

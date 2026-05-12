@@ -13,19 +13,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.ui.components.BottomRail
@@ -39,31 +42,43 @@ import com.blackjackoracle.ui.components.RoundEndOverlay
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.GameViewModel
 
+// How far above the rail's top edge the floating "+$N" labels should fly.
+private val ChipFloatLift = 30.dp
+
 @Composable
 fun GameTableScreen(vm: GameViewModel) {
     val state = vm.state
     var showHelp by remember { mutableStateOf(false) }
     var showQuit by remember { mutableStateOf(false) }
     var floats by remember { mutableStateOf<List<ChipFloat>>(emptyList()) }
-    var nextFloatId by remember { mutableStateOf(0L) }
+    val nextFloatId = remember { mutableLongStateOf(0L) }
     // The bottom rail's height varies by phase (BettingControls vs WinBars +
     // ActionControls vs InfoRow only) and by system nav-bar size. Measure it
     // and use that as the column's bottom padding so the main content always
     // has the maximum possible vertical room without overlapping the rail.
-    var railHeightPx by remember { mutableStateOf(0) }
+    val railHeightPx = remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val bottomPadding = if (railHeightPx > 0) with(density) { railHeightPx.toDp() } else 256.dp
+    val measured = railHeightPx.intValue > 0
+    val bottomPadding = if (measured) with(density) { railHeightPx.intValue.toDp() } else 256.dp
+
+    val tableGradient = remember {
+        Brush.radialGradient(listOf(BjColors.FeltCenter, BjColors.FeltEdge), radius = 900f)
+    }
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.radialGradient(listOf(BjColors.FeltCenter, BjColors.FeltEdge), radius = 900f)),
+            .background(tableGradient),
     ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(bottom = bottomPadding),
+                .padding(bottom = bottomPadding)
+                // Hide the column until the rail has reported its measured
+                // height, otherwise the first frame uses a 256dp guess and the
+                // content jumps when the real value lands.
+                .alpha(if (measured) 1f else 0f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             GameHeader(
@@ -88,7 +103,7 @@ fun GameTableScreen(vm: GameViewModel) {
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 280.dp)
+                .padding(bottom = bottomPadding + ChipFloatLift)
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
@@ -101,9 +116,10 @@ fun GameTableScreen(vm: GameViewModel) {
             vm = vm,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .onSizeChanged { railHeightPx = it.height },
+                .onSizeChanged { railHeightPx.intValue = it.height },
             onChipFloat = { amount, color ->
-                val id = nextFloatId++
+                val id = nextFloatId.longValue
+                nextFloatId.longValue = id + 1
                 floats = floats + ChipFloat(id = id, amount = amount, color = color)
             },
         )
@@ -121,6 +137,7 @@ fun GameTableScreen(vm: GameViewModel) {
 
         if (state.phase == GamePhase.INSURANCE) {
             InsuranceDialog(
+                canAfford = vm.canAffordInsurance(),
                 onTake = { vm.handleInsurance(true) },
                 onDecline = { vm.handleInsurance(false) },
             )
@@ -144,12 +161,17 @@ fun GameTableScreen(vm: GameViewModel) {
 
 @Composable
 private fun InsuranceDialog(
+    canAfford: Boolean,
     onTake: () -> Unit,
     onDecline: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDecline,
-        confirmButton = { TextButton(onClick = onTake) { Text("Take Insurance") } },
+        confirmButton = {
+            // Disabled when the player can't afford the half-bet — the VM is
+            // simultaneously running a 1s auto-decline timer in that case.
+            TextButton(onClick = onTake, enabled = canAfford) { Text("Take Insurance") }
+        },
         dismissButton = { TextButton(onClick = onDecline) { Text("No Thanks") } },
     )
 }
