@@ -127,7 +127,7 @@ class BlackjackTable(
             return
         }
         if (up.hasTenValue && hole.isAce) {
-            revealDealerAndSettle("Dealer blackjack")
+            revealDealerAndSettle("Blackjack")
             return
         }
         beginPlayerTurns()
@@ -148,7 +148,7 @@ class BlackjackTable(
         val up = state.dealerCards.firstOrNull()
         val hole = state.dealerCards.getOrNull(1)
         if (up?.isAce == true && hole?.hasTenValue == true) {
-            revealDealerAndSettle("Dealer blackjack")
+            revealDealerAndSettle("Blackjack")
         } else {
             beginPlayerTurns()
         }
