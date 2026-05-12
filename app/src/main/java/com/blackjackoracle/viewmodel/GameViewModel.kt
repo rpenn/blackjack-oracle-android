@@ -33,7 +33,7 @@ private object Timing {
     /// How long the insurance dialog lingers before the ViewModel auto-declines
     /// for a player who can't afford the bet. Long enough to read the dialog,
     /// short enough that the broke player isn't left staring at a popup.
-    const val INSURANCE_AUTO_DECLINE_MS = 1000L
+    const val INSURANCE_AUTO_DECLINE_MS = 1500L
 }
 
 data class AdvisorUiState(

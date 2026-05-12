@@ -167,9 +167,14 @@ private fun InsuranceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDecline,
+        text = if (!canAfford) {
+            { Text("Balance too low for Insurance") }
+        } else {
+            null
+        },
         confirmButton = {
             // Disabled when the player can't afford the half-bet — the VM is
-            // simultaneously running a 1s auto-decline timer in that case.
+            // simultaneously running a 1.5s auto-decline timer in that case.
             TextButton(onClick = onTake, enabled = canAfford) { Text("Take Insurance") }
         },
         dismissButton = { TextButton(onClick = onDecline) { Text("No Thanks") } },
