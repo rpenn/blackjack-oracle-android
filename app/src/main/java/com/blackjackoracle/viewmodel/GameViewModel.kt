@@ -94,6 +94,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun updateHumanPendingBet(amount: Int) {
+        sound.playChips()
         table.updatePendingBet(amount)
         sync()
     }
