@@ -14,11 +14,11 @@ class AdvisorService(
     private val baseUrl: String = BuildConfig.ADVISOR_BASE_URL,
 ) {
     fun advice(prompt: String): String {
-        val body = JSONObject(mapOf("game" to "blackjack", "prompt" to prompt))
+        val body = JSONObject(mapOf("prompt" to prompt))
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
         val request = Request.Builder()
-            .url("$baseUrl/api/advisor")
+            .url("$baseUrl/api/blackjack/android/advisor")
             .post(body)
             .build()
         client.newCall(request).execute().use { response ->

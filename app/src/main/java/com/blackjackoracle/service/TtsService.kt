@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/// Calls the same /api/tts endpoint as iOS, decodes the base64 audio, writes it
+/// Calls the /api/blackjack/android/tts endpoint, decodes the base64 audio, writes it
 /// to a temp file in the app cache, and plays via MediaPlayer.
 ///
 /// `speak` is a `suspend` function that resumes only when playback finishes or
@@ -110,7 +110,7 @@ class TtsService(
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
         val request = Request.Builder()
-            .url("$baseUrl/api/tts")
+            .url("$baseUrl/api/blackjack/android/tts")
             .post(body)
             .build()
         client.newCall(request).execute().use { response ->

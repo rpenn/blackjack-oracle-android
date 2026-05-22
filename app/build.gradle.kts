@@ -14,7 +14,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "ADVISOR_BASE_URL", "\"https://poker-six-phi.vercel.app\"")
+        buildConfigField("String", "ADVISOR_BASE_URL", "\"https://oracle-mobile-api.vercel.app\"")
     }
 
     buildTypes {
