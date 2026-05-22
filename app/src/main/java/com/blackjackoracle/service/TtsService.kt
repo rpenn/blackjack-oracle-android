@@ -5,7 +5,7 @@ import android.media.MediaPlayer
 import android.util.Base64
 import com.blackjackoracle.BuildConfig
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -15,8 +15,6 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /// Calls the /api/blackjack/android/tts endpoint, decodes the base64 audio, writes it
 /// to a temp file in the app cache, and plays via MediaPlayer.
@@ -34,19 +32,46 @@ class TtsService(
     @Volatile private var player: MediaPlayer? = null
     @Volatile private var currentTempFile: File? = null
 
-    suspend fun speak(text: String) {
+    /// `onStart` fires on the calling dispatcher the instant audio playback
+    /// actually begins — after the network fetch and temp-file write — so the
+    /// UI can show a "speaking" state that matches real sound, not the fetch.
+    suspend fun speak(text: String, onStart: () -> Unit = {}) {
         stop()
         val audio = withContext(Dispatchers.IO) { fetchAudio(text) }
         val file = withContext(Dispatchers.IO) { writeTempFile(audio) }
+        val mp = MediaPlayer()
         try {
-            playUntilDone(file)
+            mp.setDataSource(file.absolutePath)
+            mp.prepare()
+            synchronized(lock) {
+                player = mp
+                currentTempFile = file
+            }
+            mp.start()
+            onStart()
+            // Drive completion off the real playback position rather than an
+            // OnCompletionListener. That callback proved unreliable — it could
+            // fail to fire, leaving speak() suspended past the end of the audio
+            // so the "speaking" UI stayed stuck until the screen turned off.
+            // Polling isPlaying returns the instant playback actually stops.
+            while (isPlaying(mp)) {
+                delay(POLL_INTERVAL_MS)
+            }
         } finally {
-            // Belt-and-suspenders: cleanupPlayer normally deletes the file when
-            // playback ends or is cancelled; this catches the path where the
-            // coroutine unwinds before playUntilDone registers its handlers.
+            synchronized(lock) {
+                if (player === mp) player = null
+                if (currentTempFile === file) currentTempFile = null
+            }
+            try { mp.stop() } catch (_: Throwable) {}
+            try { mp.release() } catch (_: Throwable) {}
             file.delete()
         }
     }
+
+    /// Guarded because isPlaying throws IllegalStateException on a player that
+    /// stop() already released out from under us (the pause/replace path).
+    private fun isPlaying(mp: MediaPlayer): Boolean =
+        try { mp.isPlaying } catch (_: Throwable) { false }
 
     fun stop() {
         val active: MediaPlayer?
@@ -65,45 +90,6 @@ class TtsService(
     }
 
     fun release() = stop()
-
-    private suspend fun playUntilDone(file: File): Unit = suspendCancellableCoroutine { cont ->
-        val mp = MediaPlayer()
-        try {
-            mp.setDataSource(file.absolutePath)
-            mp.setOnCompletionListener {
-                cleanupPlayer(mp, file)
-                if (cont.isActive) cont.resume(Unit)
-            }
-            mp.setOnErrorListener { _, what, extra ->
-                cleanupPlayer(mp, file)
-                if (cont.isActive) cont.resumeWithException(IOException("MediaPlayer error $what/$extra"))
-                true
-            }
-            mp.prepare()
-            synchronized(lock) {
-                player = mp
-                currentTempFile = file
-            }
-            cont.invokeOnCancellation { cleanupPlayer(mp, file) }
-            mp.start()
-        } catch (t: Throwable) {
-            cleanupPlayer(mp, file)
-            throw t
-        }
-    }
-
-    /// Cleanup gated on player identity AND file identity — a stale callback
-    /// from a superseded MediaPlayer must not null out the new player or
-    /// delete the new temp file.
-    private fun cleanupPlayer(mp: MediaPlayer, file: File) {
-        try { mp.stop() } catch (_: Throwable) {}
-        try { mp.release() } catch (_: Throwable) {}
-        synchronized(lock) {
-            if (player === mp) player = null
-            if (currentTempFile === file) currentTempFile = null
-        }
-        file.delete()
-    }
 
     private fun fetchAudio(text: String): ByteArray {
         val body = JSONObject(mapOf("text" to text))
@@ -127,6 +113,7 @@ class TtsService(
         File.createTempFile("oliver", ".mp3", context.cacheDir).apply { writeBytes(bytes) }
 
     companion object {
+        private const val POLL_INTERVAL_MS = 120L
         private const val MAX_RESPONSE_BYTES = 5_000_000
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 

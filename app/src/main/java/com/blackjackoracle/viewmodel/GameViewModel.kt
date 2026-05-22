@@ -38,6 +38,7 @@ private object Timing {
 
 data class AdvisorUiState(
     val isLoading: Boolean = false,
+    val isSpeaking: Boolean = false,
     val statusLabel: String = "Tap for advice",
 )
 
@@ -122,6 +123,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmBetsAndDeal() {
         if (state.phase != GamePhase.BETTING || state.human.pendingBet <= 0) return
         cancelGame()
+        silenceAdvisors()
         table.beginHand()
         sync()
         sound.playInitialDeal(viewModelScope, cards = 4)
@@ -184,6 +186,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startNextHand() {
         cancelGame()
+        silenceAdvisors()
         table.startNextHand()
         sync()
     }
@@ -192,6 +195,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun requestAskOliverAdvice() {
         if (state.phase == GamePhase.ROUND_END || advisorState.isLoading) return
+        // Tapping mid-speech pauses playback rather than restarting it. The
+        // cached advice survives, so the next tap replays from the top.
+        if (advisorState.isSpeaking) {
+            askJob?.cancel(); askJob = null
+            tts.stop()
+            advisorState = AdvisorUiState(statusLabel = "Tap to replay")
+            return
+        }
         askJob?.cancel()
         askJob = launchAdvisor(
             idleLabel = "Tap for advice",
@@ -204,6 +215,12 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun requestOliversHoot() {
         if (state.phase != GamePhase.ROUND_END || hootState.isLoading) return
+        if (hootState.isSpeaking) {
+            hootJob?.cancel(); hootJob = null
+            tts.stop()
+            hootState = AdvisorUiState(statusLabel = "Tap to replay")
+            return
+        }
         hootJob?.cancel()
         hootJob = launchAdvisor(
             idleLabel = "Tap to hear what went down",
@@ -235,8 +252,13 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
                 val text = getCached(key) ?: withContext(Dispatchers.IO) {
                     advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
                 }.also { putCached(key, it) }
-                setState(AdvisorUiState(isLoading = true, statusLabel = "Speaking..."))
-                tts.speak(text)
+                // Keep the "Thinking..." spinner through the audio fetch/decode
+                // — only flip to the speaking bars once playback truly begins,
+                // otherwise the bars animate over silence (most visible on the
+                // longer Hoot recap whose audio takes longer to fetch).
+                tts.speak(text) {
+                    setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Speaking..."))
+                }
             } catch (e: CancellationException) {
                 // Don't swallow cancellation — let the job complete cleanly.
                 throw e
@@ -290,6 +312,19 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         hootJob?.cancel(); hootJob = null
         insuranceAutoDeclineJob?.cancel(); insuranceAutoDeclineJob = null
         tts.stop()
+    }
+
+    /// Advisor jobs and audio are per-hand. Without this, a Hoot started at one
+    /// round's end (or its still-playing audio) bleeds into the next hand —
+    /// leaving hootState.isSpeaking=true so the equalizer animates at the next
+    /// round end even though the user never tapped Oliver. Cancel the jobs,
+    /// silence playback, and reset both lanes to their idle labels.
+    private fun silenceAdvisors() {
+        askJob?.cancel(); askJob = null
+        hootJob?.cancel(); hootJob = null
+        tts.stop()
+        advisorState = AdvisorUiState(statusLabel = "Tap for advice")
+        hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
     }
 
     override fun onCleared() {

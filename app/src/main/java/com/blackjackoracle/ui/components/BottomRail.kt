@@ -1,5 +1,12 @@
 package com.blackjackoracle.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjackoracle.R
@@ -121,6 +130,7 @@ private fun InfoRow(
         Spacer(Modifier.weight(1f))
         OliverPill(
             isLoading = askOliver.isLoading,
+            isSpeaking = askOliver.isSpeaking,
             enabled = askOliverEnabled,
             onClick = onAskOliver,
         )
@@ -170,6 +180,7 @@ private fun WinChanceLabel(visible: Boolean, modifier: Modifier = Modifier) {
 @Composable
 private fun OliverPill(
     isLoading: Boolean,
+    isSpeaking: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -197,7 +208,9 @@ private fun OliverPill(
             softWrap = false,
             overflow = TextOverflow.Clip,
         )
-        if (isLoading) {
+        if (isSpeaking) {
+            SpeakingBars(maxHeight = 14.dp)
+        } else if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(14.dp),
                 color = BjColors.Accent,
@@ -216,6 +229,7 @@ private fun OliversHootButton(vm: GameViewModel) {
         title = "Oliver's Hoot",
         statusLabel = hootState.statusLabel,
         isLoading = hootState.isLoading,
+        isSpeaking = hootState.isSpeaking,
         enabled = vm.state.phase == GamePhase.ROUND_END,
         onClick = vm::requestOliversHoot,
     )
@@ -226,6 +240,7 @@ private fun OliverAdvisorButton(
     title: String,
     statusLabel: String,
     isLoading: Boolean,
+    isSpeaking: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -263,7 +278,9 @@ private fun OliverAdvisorButton(
                 overflow = TextOverflow.Clip,
             )
         }
-        if (isLoading) {
+        if (isSpeaking) {
+            SpeakingBars(maxHeight = 22.dp, barWidth = 4.dp, spacing = 3.dp)
+        } else if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(22.dp),
                 color = BjColors.Accent,
@@ -481,6 +498,48 @@ fun RoundEndOverlay(vm: GameViewModel) {
             OliversHootButton(vm)
             Spacer(Modifier.height(18.dp))
             GoldButton("NEXT HAND", Modifier.fillMaxWidth()) { vm.startNextHand() }
+        }
+    }
+}
+
+// Animated vertical bars shown while Oliver is talking — a speaker-level
+// motion that reads as "sound playing" far better than a spinner. Each bar
+// runs its own looping height animation with a staggered start offset, so the
+// peak appears to travel left-to-right across the row (KITT-style).
+@Composable
+private fun SpeakingBars(
+    modifier: Modifier = Modifier,
+    color: Color = BjColors.Accent,
+    barCount: Int = 4,
+    barWidth: Dp = 3.dp,
+    spacing: Dp = 2.dp,
+    minHeight: Dp = 3.dp,
+    maxHeight: Dp = 16.dp,
+) {
+    val transition = rememberInfiniteTransition(label = "speakingBars")
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(barCount) { i ->
+            val fraction by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                    initialStartOffset = StartOffset(i * 90),
+                ),
+                label = "bar$i",
+            )
+            Box(
+                Modifier
+                    .width(barWidth)
+                    .height(minHeight + (maxHeight - minHeight) * fraction)
+                    .clip(RoundedCornerShape(barWidth / 2))
+                    .background(color),
+            )
         }
     }
 }
