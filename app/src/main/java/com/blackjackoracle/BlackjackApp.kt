@@ -9,7 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-
+import com.revenuecat.purchases.Purchases
+import com.revenuecat.purchases.LogLevel
 /// Owns the billing singletons for the whole process (no DI framework). The VM
 /// reads these via getApplication<BlackjackApp>(); Composables via CompositionLocals.
 class BlackjackApp : Application() {
@@ -24,6 +25,7 @@ class BlackjackApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Purchases.logLevel = if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.WARN
         entitlements = EntitlementStore(TrialTokenStore(this))
         purchases = PurchaseManager(applicationContext, entitlements)
         purchases.configure()
