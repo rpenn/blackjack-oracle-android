@@ -102,6 +102,32 @@ object AdvisorPromptBuilder {
             "Decisions made so far this hand:\n$historyBlock"
         }
 
+        // When split/double are available, address them — but proportionally.
+        // The advisor must NOT call every option "tempting": doubling a hard 14
+        // isn't tempting just because it's on the menu. Only flag an option as
+        // appealing when its win chance is genuinely competitive (split often
+        // is, because per-hand win % hides that it risks a second bet); plays
+        // that are plainly worse get a quick dismissal, not a hype-then-debunk.
+        val specialOptions = buildList {
+            if (PlayerAction.Split in c.available) add("splitting")
+            if (PlayerAction.Double in c.available) add("doubling down")
+        }
+        val optionGuidance = if (specialOptions.isEmpty()) {
+            ""
+        } else {
+            buildString {
+                append("Briefly address ")
+                append(specialOptions.joinToString(" and "))
+                append(" since ")
+                append(if (specialOptions.size > 1) "those options are" else "that option is")
+                append(" available — say whether to do it and why or why not. Keep it proportional: only describe an option as tempting or appealing if its win chance is genuinely close to or above the recommended play. If an option is clearly worse, just dismiss it in a few words — do not hype a bad play only to knock it down. Remember the win percentages are per hand, not expected value. ")
+                if (PlayerAction.Split in c.available) {
+                    append("Splitting in particular risks a second equal bet, so a higher per-hand win chance — which the split bars sometimes show — can still lose more money over time when each resulting hand is itself a long-term loser. ")
+                }
+                append("Judge every option by long-term money won or lost, not by the odds of winning a single hand.")
+            }
+        }
+
         return """
             You are a blackjack advisor speaking directly to the player. Your response will be read aloud by a text-to-speech service, so write exactly as you would speak — plain sentences, no bullet points, no numbered lists, no asterisks, no markdown, no special characters, no dollar signs (say "dollars" instead), no percent signs (say "percent" instead). Just natural, flowing speech.
 
@@ -120,7 +146,9 @@ object AdvisorPromptBuilder {
 
             $groundTruth
 
-            In 2 to 3 spoken sentences, recommend the engine's action and explain the reasoning in plain language. Do not contradict the engine. Be direct and conversational. When the play is non-obvious — for example doubling a 9 against a dealer 2, splitting 9s against a 9, or hitting a 12 against a 2 or 3 — say plainly what makes it counter-intuitive and why the math favors it anyway.
+            $optionGuidance
+
+            In 2 to 4 spoken sentences, recommend the engine's action and explain the reasoning in plain language. Do not contradict the engine. Be direct and conversational. When the play is non-obvious — for example doubling a 9 against a dealer 2, splitting 9s against a 9, or hitting a 12 against a 2 or 3 — say plainly what makes it counter-intuitive and why the math favors it anyway.
         """.trimIndent()
     }
 
