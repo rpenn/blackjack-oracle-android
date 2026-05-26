@@ -35,9 +35,9 @@ class TtsService(
     /// `onStart` fires on the calling dispatcher the instant audio playback
     /// actually begins — after the network fetch and temp-file write — so the
     /// UI can show a "speaking" state that matches real sound, not the fetch.
-    suspend fun speak(text: String, onStart: () -> Unit = {}) {
+    suspend fun speak(text: String, authToken: String? = null, onStart: () -> Unit = {}) {
         stop()
-        val audio = withContext(Dispatchers.IO) { fetchAudio(text) }
+        val audio = withContext(Dispatchers.IO) { fetchAudio(text, authToken) }
         val file = withContext(Dispatchers.IO) { writeTempFile(audio) }
         val mp = MediaPlayer()
         try {
@@ -91,14 +91,15 @@ class TtsService(
 
     fun release() = stop()
 
-    private fun fetchAudio(text: String): ByteArray {
+    private fun fetchAudio(text: String, authToken: String?): ByteArray {
         val body = JSONObject(mapOf("text" to text))
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url("$baseUrl/api/blackjack/android/tts")
             .post(body)
-            .build()
+        if (authToken != null) builder.header("Authorization", "Bearer $authToken")
+        val request = builder.build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("TTS failed: ${response.code}")
             val source = (response.body ?: throw IOException("Empty TTS response")).source()

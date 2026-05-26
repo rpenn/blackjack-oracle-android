@@ -5,7 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
 import com.blackjackoracle.ui.AppRoot
+import com.blackjackoracle.ui.LocalEntitlements
+import com.blackjackoracle.ui.LocalPaywall
+import com.blackjackoracle.ui.LocalPurchases
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
 import com.blackjackoracle.viewmodel.GameViewModel
 
@@ -16,11 +20,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val app = application as BlackjackApp
         setContent {
             BlackjackOracleTheme {
-                AppRoot(vm)
+                CompositionLocalProvider(
+                    LocalEntitlements provides app.entitlements,
+                    LocalPurchases provides app.purchases,
+                    LocalPaywall provides app.paywall,
+                ) {
+                    AppRoot(vm)
+                }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Drop a trial that expired while backgrounded so isPremium recomputes.
+        (application as BlackjackApp).entitlements.pruneExpiredTrial()
     }
 
     override fun onStop() {
