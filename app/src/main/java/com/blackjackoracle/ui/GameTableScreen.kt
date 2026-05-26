@@ -41,12 +41,22 @@ import com.blackjackoracle.ui.components.PlayerArea
 import com.blackjackoracle.ui.components.RoundEndOverlay
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.GameViewModel
+import com.blackjackoracle.LocalEntitlements
+import com.blackjackoracle.LocalPaywall
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 // How far above the rail's top edge the floating "+$N" labels should fly.
 private val ChipFloatLift = 30.dp
 
 @Composable
 fun GameTableScreen(vm: GameViewModel) {
+    val entitlements = LocalEntitlements.current
+    val paywall = LocalPaywall.current
+    val isPremium by entitlements.isPremium.collectAsState()
     val state = vm.state
     var showHelp by remember { mutableStateOf(false) }
     var showQuit by remember { mutableStateOf(false) }
@@ -133,6 +143,31 @@ fun GameTableScreen(vm: GameViewModel) {
             exit = fadeOut(animationSpec = tween(200)),
         ) {
             RoundEndOverlay(vm)
+        }
+
+        if (state.phase == GamePhase.ROUND_END && !isPremium && !vm.lossNudgeShown) {
+            val loss = state.roundResults.any { it.net < 0 }
+            if (loss) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    vm.lossNudgeShown = true
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 100.dp)
+                        .systemBarsPadding()
+                ) {
+                    Text(
+                        "Tough hand? See your exact odds with Premium",
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(BjColors.Danger)
+                            .clickable { paywall.present("after_loss_toast") }
+                            .padding(16.dp)
+                    )
+                }
+            }
         }
 
         if (state.phase == GamePhase.INSURANCE) {

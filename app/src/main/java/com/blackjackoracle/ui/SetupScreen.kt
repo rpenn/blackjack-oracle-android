@@ -18,6 +18,9 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,9 +39,20 @@ import com.blackjackoracle.R
 import com.blackjackoracle.ui.components.GoldButton
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
+import com.blackjackoracle.LocalEntitlements
+import com.blackjackoracle.LocalPaywall
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun SetupScreen(onStart: () -> Unit) {
+    val entitlements = LocalEntitlements.current
+    val paywall = LocalPaywall.current
+    val isPremium by entitlements.isPremium.collectAsState()
     var showHelp by remember { mutableStateOf(false) }
     val backdrop = remember { Brush.verticalGradient(listOf(BjColors.BgTop, BjColors.BgBottom)) }
 
@@ -86,6 +100,49 @@ fun SetupScreen(onStart: () -> Unit) {
             )
             Spacer(Modifier.height(50.dp))
             GoldButton("TAKE A SEAT", Modifier.fillMaxWidth(), onClick = onStart)
+
+            if (!isPremium) {
+                Spacer(Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BjColors.Accent.copy(alpha = 0.1f))
+                        .border(1.dp, BjColors.Accent.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .clickable { paywall.present("setup_banner") }
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = "Lock",
+                            tint = BjColors.Accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Go Premium",
+                            color = BjColors.Accent,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Unlock live Win Chance + Ask Oliver",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
 
         if (showHelp) {

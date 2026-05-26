@@ -32,9 +32,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,6 +59,8 @@ import com.blackjackoracle.model.WinChance
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.AdvisorUiState
 import com.blackjackoracle.viewmodel.GameViewModel
+import com.blackjackoracle.LocalEntitlements
+import com.blackjackoracle.LocalPaywall
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -66,6 +70,9 @@ fun BottomRail(
     modifier: Modifier = Modifier,
     onChipFloat: (amount: Int, color: Color) -> Unit = { _, _ -> },
 ) {
+    val entitlements = LocalEntitlements.current
+    val paywall = LocalPaywall.current
+    val isPremium by entitlements.isPremium.collectAsState()
     val state = vm.state
     val showWinChanceLabel = vm.isHumanTurn && state.winChance != null
     val railGradient = remember {
@@ -87,8 +94,9 @@ fun BottomRail(
             chips = state.human.chips - state.human.pendingBet,
             askOliver = vm.advisorState,
             askOliverEnabled = isAskOliverEnabled(state),
-            onAskOliver = vm::requestAskOliverAdvice,
+            onAskOliver = { if (isPremium) vm.requestAskOliverAdvice() else paywall.present("advisor_ingame") },
             showWinChanceLabel = showWinChanceLabel,
+            isPremium = isPremium,
         )
         // Only show controls in phases where the player can act. Rendering
         // ActionControls during DEALING / DEALER_TURN / SETTLEMENT / ROUND_END
@@ -97,7 +105,10 @@ fun BottomRail(
         when (state.phase) {
             GamePhase.BETTING -> BettingControls(vm = vm, onChipFloat = onChipFloat)
             GamePhase.PLAYER_TURNS -> {
-                state.winChance?.let { WinBars(it, vm.availableActions()) }
+                state.winChance?.let {
+                    if (isPremium) WinBars(it, vm.availableActions())
+                    else LockedWinBars(vm.availableActions(), onUnlock = { paywall.present("winchance_locked") })
+                }
                 ActionControls(vm)
             }
             else -> Unit
@@ -118,6 +129,7 @@ private fun InfoRow(
     askOliverEnabled: Boolean,
     onAskOliver: () -> Unit,
     showWinChanceLabel: Boolean,
+    isPremium: Boolean,
 ) {
     Row(
         Modifier.fillMaxWidth(),
@@ -133,6 +145,7 @@ private fun InfoRow(
             isSpeaking = askOliver.isSpeaking,
             enabled = askOliverEnabled,
             onClick = onAskOliver,
+            isPremium = isPremium,
         )
         Spacer(Modifier.weight(1f))
         WinChanceLabel(
@@ -183,6 +196,7 @@ private fun OliverPill(
     isSpeaking: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    isPremium: Boolean,
 ) {
     Row(
         Modifier
@@ -208,7 +222,14 @@ private fun OliverPill(
             softWrap = false,
             overflow = TextOverflow.Clip,
         )
-        if (isSpeaking) {
+        if (!isPremium) {
+            Icon(
+                androidx.compose.material.icons.Icons.Default.Lock,
+                contentDescription = "Locked",
+                tint = BjColors.Accent.copy(alpha = if (enabled) 1f else 0.45f),
+                modifier = Modifier.size(14.dp)
+            )
+        } else if (isSpeaking) {
             SpeakingBars(maxHeight = 14.dp)
         } else if (isLoading) {
             CircularProgressIndicator(
@@ -224,14 +245,19 @@ private fun OliverPill(
 
 @Composable
 private fun OliversHootButton(vm: GameViewModel) {
+    val entitlements = LocalEntitlements.current
+    val paywall = LocalPaywall.current
+    val isPremium by entitlements.isPremium.collectAsState()
     val hootState = vm.hootState
+    val statusLabel = if (!isPremium) "Unlock with Premium" else hootState.statusLabel
     OliverAdvisorButton(
         title = "Oliver's Hoot",
-        statusLabel = hootState.statusLabel,
+        statusLabel = statusLabel,
         isLoading = hootState.isLoading,
         isSpeaking = hootState.isSpeaking,
         enabled = vm.state.phase == GamePhase.ROUND_END,
-        onClick = vm::requestOliversHoot,
+        onClick = { if (isPremium) vm.requestOliversHoot() else paywall.present("advisor_roundend") },
+        isPremium = isPremium,
     )
 }
 
@@ -243,6 +269,7 @@ private fun OliverAdvisorButton(
     isSpeaking: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    isPremium: Boolean,
 ) {
     Row(
         Modifier
@@ -278,7 +305,13 @@ private fun OliverAdvisorButton(
                 overflow = TextOverflow.Clip,
             )
         }
-        if (isSpeaking) {
+        if (!isPremium) {
+            Icon(
+                androidx.compose.material.icons.Icons.Default.Lock,
+                contentDescription = "Locked",
+                tint = BjColors.Accent,
+            )
+        } else if (isSpeaking) {
             SpeakingBars(maxHeight = 22.dp, barWidth = 4.dp, spacing = 3.dp)
         } else if (isLoading) {
             CircularProgressIndicator(
@@ -452,6 +485,59 @@ private fun WinBars(
                     softWrap = false,
                     overflow = TextOverflow.Clip,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LockedWinBars(
+    actions: Set<PlayerAction>,
+    onUnlock: () -> Unit,
+) {
+    val rows = buildList<Pair<String, Color>> {
+        add("Hit" to BjColors.Success)
+        if (PlayerAction.Split in actions) {
+            add("Split H1" to BjColors.SplitYellow)
+            add("Split H2" to BjColors.SplitYellow)
+        }
+        if (PlayerAction.Double in actions) {
+            add("Double" to BjColors.InfoBlue)
+        }
+        add("Stand" to BjColors.Danger)
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.clickable(onClick = onUnlock)
+    ) {
+        rows.forEach { (label, color) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    color = BjColors.Neutral.copy(alpha = 0.78f),
+                    modifier = Modifier.width(64.dp),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(9.dp))
+                )
+                Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        tint = BjColors.Accent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
         }
     }

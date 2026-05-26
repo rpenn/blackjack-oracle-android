@@ -59,6 +59,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private var lastHootKey: String? = null
     private var lastHootAdvice: String? = null
 
+    var lossNudgeShown: Boolean = false
+
     var state: GameState by mutableStateOf(table.state)
         private set
 
@@ -246,17 +248,20 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         val snapshot = state
         val available = availableActions()
         val key = AdvisorPromptBuilder.cacheKey(snapshot)
+        val app = getApplication<com.blackjackoracle.BlackjackApp>()
+        val token = app.entitlements.activeTrialToken ?: app.purchases.appUserID
+
         return viewModelScope.launch {
             setState(AdvisorUiState(isLoading = true, statusLabel = "Thinking..."))
             try {
                 val text = getCached(key) ?: withContext(Dispatchers.IO) {
-                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
+                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)), token)
                 }.also { putCached(key, it) }
                 // Keep the "Thinking..." spinner through the audio fetch/decode
                 // — only flip to the speaking bars once playback truly begins,
                 // otherwise the bars animate over silence (most visible on the
                 // longer Hoot recap whose audio takes longer to fetch).
-                tts.speak(text) {
+                tts.speak(text, token) {
                     setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Speaking..."))
                 }
             } catch (e: CancellationException) {

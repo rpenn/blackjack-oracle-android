@@ -13,14 +13,15 @@ class AdvisorService(
     private val client: OkHttpClient = defaultClient,
     private val baseUrl: String = BuildConfig.ADVISOR_BASE_URL,
 ) {
-    fun advice(prompt: String): String {
+    fun advice(prompt: String, authToken: String? = null): String {
         val body = JSONObject(mapOf("prompt" to prompt))
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url("$baseUrl/api/blackjack/android/advisor")
             .post(body)
-            .build()
+        if (authToken != null) builder.header("Authorization", "Bearer $authToken")
+        val request = builder.build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Advisor failed: ${response.code}")
             // Cap the read at the okio source level — `.string()` buffers the

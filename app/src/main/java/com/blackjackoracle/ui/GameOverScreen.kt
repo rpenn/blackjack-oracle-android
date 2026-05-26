@@ -23,17 +23,30 @@ import com.blackjackoracle.ui.components.GoldButton
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
 import com.blackjackoracle.viewmodel.GameViewModel
+import com.blackjackoracle.LocalEntitlements
+import com.blackjackoracle.LocalPaywall
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun GameOverScreen(vm: GameViewModel) {
+    val entitlements = LocalEntitlements.current
+    val paywall = LocalPaywall.current
+    val isPremium by entitlements.isPremium.collectAsState()
     GameOverContent(
         handsPlayed = vm.state.handsPlayed,
+        isPremium = isPremium,
+        onGoPremium = { paywall.present("gameover_chip") },
         onNewGame = vm::returnToSetup,
     )
 }
 
 @Composable
-private fun GameOverContent(handsPlayed: Int, onNewGame: () -> Unit) {
+private fun GameOverContent(handsPlayed: Int, isPremium: Boolean, onGoPremium: () -> Unit, onNewGame: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
@@ -59,6 +72,20 @@ private fun GameOverContent(handsPlayed: Int, onNewGame: () -> Unit) {
             )
             Spacer(Modifier.height(28.dp))
             GoldButton("NEW GAME", Modifier.fillMaxWidth(), onClick = onNewGame)
+            if (!isPremium) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Play smarter — Go Premium",
+                    color = BjColors.Accent,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable(onClick = onGoPremium)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
@@ -67,6 +94,6 @@ private fun GameOverContent(handsPlayed: Int, onNewGame: () -> Unit) {
 @Composable
 private fun GameOverPreview() {
     BlackjackOracleTheme {
-        GameOverContent(handsPlayed = 27, onNewGame = {})
+        GameOverContent(handsPlayed = 27, isPremium = false, onGoPremium = {}, onNewGame = {})
     }
 }
