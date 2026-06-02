@@ -38,7 +38,7 @@ class PurchaseManager(
 
     fun configure() {
         if (configured) return
-        Purchases.logLevel = if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.WARN
+        // logLevel is set by BlackjackApp.onCreate before this runs.
         Purchases.configure(PurchasesConfiguration.Builder(context, API_KEY).build())
         // Pushes renewals / cross-device restores into the entitlement store.
         Purchases.sharedInstance.updatedCustomerInfoListener =
@@ -93,10 +93,15 @@ class PurchaseManager(
     companion object {
         const val ENTITLEMENT_ID = "Blackjack Oracle Pro"
 
-        // RevenueCat public SDK key. This is the shared Test Store key (reused
-        // from iOS — confirmed project-wide in the RC dashboard). When Google
-        // Play Billing goes live, swap to a goog_ key behind the debug flag:
-        //   val API_KEY get() = if (BuildConfig.DEBUG) "test_…" else "goog_…"
-        const val API_KEY = "test_QDgyNJLlCdEHxlvqXPdnJwRYMmE"
+        // RevenueCat public SDK key.
+        // - Debug builds (local development): the project's Test Store key —
+        //   purchases are simulated by the SDK; no Google Play Billing involved.
+        // - Release builds (signed AAB → internal/closed/production): the Google
+        //   Play public key — hits real Play Billing. License testers on the
+        //   internal-testing track are not charged.
+        // Public SDK keys are intended to be embedded in clients; safe to commit.
+        val API_KEY: String =
+            if (BuildConfig.DEBUG) "test_QDgyNJLlCdEHxlvqXPdnJwRYMmE"
+            else "goog_uGzxHkbIgZCvkIcEghauPhtcaaA"
     }
 }
