@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,6 +56,8 @@ import kotlinx.coroutines.launch
 private const val PRIVACY_URL = "https://www.angelfirelabs.com/privacy-policy"
 private const val EULA_URL = "https://www.angelfirelabs.com/eula"
 
+private enum class PaywallLoad { Loading, Ready, Failed }
+
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
@@ -76,6 +79,8 @@ fun PaywallScreen(onPromoCode: () -> Unit) {
     var selectedId by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    var loadState by remember { mutableStateOf(PaywallLoad.Loading) }
+    var retryTick by remember { mutableIntStateOf(0) }
 
     // Default the selection to the first product (yearly) once they load.
     LaunchedEffect(products) {
@@ -85,6 +90,15 @@ fun PaywallScreen(onPromoCode: () -> Unit) {
     // restore, renewal, or a promo trial applied from the sheet).
     LaunchedEffect(isPremium) {
         if (isPremium) paywall.dismiss()
+    }
+    // Refresh offerings when the paywall opens and on each Retry. Tracks loading
+    // vs failed so the user gets a retry affordance instead of a dead spinner
+    // (e.g. transient Play outage, offline, or a sideloaded build Play won't
+    // serve products to).
+    LaunchedEffect(retryTick) {
+        loadState = PaywallLoad.Loading
+        val ok = purchases.refreshProducts()
+        loadState = if (ok) PaywallLoad.Ready else PaywallLoad.Failed
     }
 
     Box(
@@ -116,16 +130,29 @@ fun PaywallScreen(onPromoCode: () -> Unit) {
             ValueProp("Ask Oliver", "Your AI advisor — spoken, in-game guidance and round recaps")
             Spacer(Modifier.height(26.dp))
 
-            if (products.isEmpty()) {
-                CircularProgressIndicator(color = BjColors.Accent)
-            } else {
-                products.forEach { product ->
-                    ProductRow(
-                        product = product,
-                        selected = product.id == selectedId,
-                        onSelect = { selectedId = product.id },
+            when {
+                products.isNotEmpty() -> {
+                    products.forEach { product ->
+                        ProductRow(
+                            product = product,
+                            selected = product.id == selectedId,
+                            onSelect = { selectedId = product.id },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+                loadState == PaywallLoad.Loading -> {
+                    CircularProgressIndicator(color = BjColors.Accent)
+                }
+                else -> {
+                    Text(
+                        "Couldn't load subscription options. Check your connection and try again.",
+                        color = BjColors.Neutral.copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(14.dp))
+                    GoldButton("Try Again", Modifier.fillMaxWidth()) { retryTick++ }
                 }
             }
 
@@ -134,22 +161,26 @@ fun PaywallScreen(onPromoCode: () -> Unit) {
                 Text(it, color = BjColors.Danger, fontSize = 13.sp, textAlign = TextAlign.Center)
             }
 
-            Spacer(Modifier.height(18.dp))
-            if (busy) {
-                CircularProgressIndicator(color = BjColors.Accent)
-            } else {
-                GoldButton("Continue", Modifier.fillMaxWidth()) {
-                    val product = products.firstOrNull { it.id == selectedId }
-                    if (product == null || activity == null) {
-                        status = "Purchase unavailable right now."
-                        return@GoldButton
-                    }
-                    scope.launch {
-                        busy = true
-                        status = null
-                        val ok = runCatching { purchases.purchase(activity, product) }.getOrDefault(false)
-                        busy = false
-                        if (ok) paywall.dismiss() else status = "Purchase didn't complete."
+            // Continue only makes sense with a product to buy; hidden while
+            // loading / on failure (Restore + promo + legal stay available below).
+            if (products.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                if (busy) {
+                    CircularProgressIndicator(color = BjColors.Accent)
+                } else {
+                    GoldButton("Continue", Modifier.fillMaxWidth()) {
+                        val product = products.firstOrNull { it.id == selectedId }
+                        if (product == null || activity == null) {
+                            status = "Purchase unavailable right now."
+                            return@GoldButton
+                        }
+                        scope.launch {
+                            busy = true
+                            status = null
+                            val ok = runCatching { purchases.purchase(activity, product) }.getOrDefault(false)
+                            busy = false
+                            if (ok) paywall.dismiss() else status = "Purchase didn't complete."
+                        }
                     }
                 }
             }

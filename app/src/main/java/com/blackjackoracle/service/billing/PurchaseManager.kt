@@ -53,7 +53,15 @@ class PurchaseManager(
         runCatching { loadOfferings() }
     }
 
-    private suspend fun loadOfferings() {
+    /// Re-fetch offerings on demand (paywall Retry). Returns true if at least one
+    /// product loaded. Distinguishes a genuine failure (threw) from "loaded but
+    /// the offering is empty" — both leave `products` empty, but the paywall
+    /// shows different copy for each.
+    suspend fun refreshProducts(): Boolean =
+        runCatching { loadOfferings() }.getOrDefault(false)
+
+    /// Returns true if the fetched offering contained at least one product.
+    private suspend fun loadOfferings(): Boolean {
         val offerings = Purchases.sharedInstance.awaitOfferings()
         val packages = offerings.current?.availablePackages.orEmpty()
         packagesById.clear()
@@ -69,6 +77,7 @@ class PurchaseManager(
             }
             // Yearly first (mirrors iOS ordering).
             .sortedByDescending { it.isAnnual }
+        return _products.value.isNotEmpty()
     }
 
     /// Android requires the current Activity to launch the billing flow.
