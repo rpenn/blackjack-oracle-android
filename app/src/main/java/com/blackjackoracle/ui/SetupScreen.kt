@@ -2,6 +2,8 @@ package com.blackjackoracle.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -23,10 +28,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -86,10 +93,47 @@ fun SetupScreen(onStart: () -> Unit) {
             )
             Spacer(Modifier.height(50.dp))
             GoldButton("TAKE A SEAT", Modifier.fillMaxWidth(), onClick = onStart)
+
+            val isPremium by LocalEntitlements.current.isPremium.collectAsState()
+            val paywall = LocalPaywall.current
+            if (!isPremium) {
+                Spacer(Modifier.height(18.dp))
+                PremiumBanner { paywall.present("setup_banner") }
+            }
         }
 
         if (showHelp) {
             HelpDialog(onDismiss = { showHelp = false })
+        }
+    }
+}
+
+@Composable
+private fun PremiumBanner(onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, BjColors.Accent.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+            .background(Color.Black.copy(alpha = 0.25f))
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Lock, contentDescription = null, tint = BjColors.Accent)
+        Spacer(Modifier.size(12.dp))
+        Column {
+            Text(
+                "Go Premium",
+                color = BjColors.Accent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                "Unlock live Win Chance + Ask Oliver",
+                color = BjColors.Neutral.copy(alpha = 0.8f),
+                fontSize = 12.sp,
+            )
         }
     }
 }

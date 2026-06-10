@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.blackjackoracle.BlackjackApp
 import com.blackjackoracle.game.BlackjackTable
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
@@ -49,6 +50,12 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private val advisor = AdvisorService()
     private val tts = TtsService(app.applicationContext)
 
+    private val billing get() = getApplication<BlackjackApp>()
+    /// Bearer token for the AI endpoints: the active trial JWT, else the
+    /// RevenueCat appUserID. The server-side gate verifies it.
+    private val authToken: String?
+        get() = billing.entitlements.activeTrialToken ?: billing.purchases.appUserID
+
     private var gameJob: Job? = null
     private var askJob: Job? = null
     private var hootJob: Job? = null
@@ -69,6 +76,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         AdvisorUiState(statusLabel = "Tap to hear what went down"),
     )
         private set
+
+    /// Latches the after-loss paywall nudge to fire at most once per process.
+    /// Lives here (not in Composable state) so it survives recomposition and
+    /// config changes. Reset only when the process dies.
+    var lossNudgeShown: Boolean = false
 
     // Setup / round lifecycle
 
@@ -249,14 +261,15 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         return viewModelScope.launch {
             setState(AdvisorUiState(isLoading = true, statusLabel = "Thinking..."))
             try {
+                val token = authToken
                 val text = getCached(key) ?: withContext(Dispatchers.IO) {
-                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)))
+                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)), token)
                 }.also { putCached(key, it) }
                 // Keep the "Thinking..." spinner through the audio fetch/decode
                 // — only flip to the speaking bars once playback truly begins,
                 // otherwise the bars animate over silence (most visible on the
                 // longer Hoot recap whose audio takes longer to fetch).
-                tts.speak(text) {
+                tts.speak(text, token) {
                     setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Speaking..."))
                 }
             } catch (e: CancellationException) {

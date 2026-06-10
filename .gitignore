@@ -57,3 +57,6 @@ Desktop.ini
 *.env
 .env.*
 secrets.properties
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+PREMIUM_GATING_PLAN.md

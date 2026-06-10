@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -54,6 +56,8 @@ import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.model.PlayerAction
 import com.blackjackoracle.model.WinChance
+import com.blackjackoracle.ui.LocalEntitlements
+import com.blackjackoracle.ui.LocalPaywall
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.AdvisorUiState
 import com.blackjackoracle.viewmodel.GameViewModel
@@ -67,6 +71,8 @@ fun BottomRail(
     onChipFloat: (amount: Int, color: Color) -> Unit = { _, _ -> },
 ) {
     val state = vm.state
+    val isPremium by LocalEntitlements.current.isPremium.collectAsState()
+    val paywall = LocalPaywall.current
     val showWinChanceLabel = vm.isHumanTurn && state.winChance != null
     val railGradient = remember {
         Brush.verticalGradient(listOf(BjColors.RailTop, BjColors.RailBottom))
@@ -87,7 +93,11 @@ fun BottomRail(
             chips = state.human.chips - state.human.pendingBet,
             askOliver = vm.advisorState,
             askOliverEnabled = isAskOliverEnabled(state),
-            onAskOliver = vm::requestAskOliverAdvice,
+            isPremium = isPremium,
+            onAskOliver = {
+                if (isPremium) vm.requestAskOliverAdvice()
+                else paywall.present("advisor_ingame")
+            },
             showWinChanceLabel = showWinChanceLabel,
         )
         // Only show controls in phases where the player can act. Rendering
@@ -97,7 +107,13 @@ fun BottomRail(
         when (state.phase) {
             GamePhase.BETTING -> BettingControls(vm = vm, onChipFloat = onChipFloat)
             GamePhase.PLAYER_TURNS -> {
-                state.winChance?.let { WinBars(it, vm.availableActions()) }
+                state.winChance?.let {
+                    if (isPremium) {
+                        WinBars(it, vm.availableActions())
+                    } else {
+                        LockedWinBars(vm.availableActions()) { paywall.present("winchance_locked") }
+                    }
+                }
                 ActionControls(vm)
             }
             else -> Unit
@@ -116,6 +132,7 @@ private fun InfoRow(
     chips: Int,
     askOliver: AdvisorUiState,
     askOliverEnabled: Boolean,
+    isPremium: Boolean,
     onAskOliver: () -> Unit,
     showWinChanceLabel: Boolean,
 ) {
@@ -131,7 +148,10 @@ private fun InfoRow(
         OliverPill(
             isLoading = askOliver.isLoading,
             isSpeaking = askOliver.isSpeaking,
-            enabled = askOliverEnabled,
+            // When locked, the pill stays tappable in any phase so it can route
+            // to the paywall; only premium users get the phase-gated behavior.
+            enabled = if (isPremium) askOliverEnabled else true,
+            locked = !isPremium,
             onClick = onAskOliver,
         )
         Spacer(Modifier.weight(1f))
@@ -182,6 +202,7 @@ private fun OliverPill(
     isLoading: Boolean,
     isSpeaking: Boolean,
     enabled: Boolean,
+    locked: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
@@ -208,10 +229,15 @@ private fun OliverPill(
             softWrap = false,
             overflow = TextOverflow.Clip,
         )
-        if (isSpeaking) {
-            SpeakingBars(maxHeight = 14.dp)
-        } else if (isLoading) {
-            CircularProgressIndicator(
+        when {
+            locked -> Icon(
+                Icons.Filled.Lock,
+                contentDescription = "Premium",
+                tint = BjColors.Accent,
+                modifier = Modifier.size(14.dp),
+            )
+            isSpeaking -> SpeakingBars(maxHeight = 14.dp)
+            isLoading -> CircularProgressIndicator(
                 modifier = Modifier.size(14.dp),
                 color = BjColors.Accent,
                 strokeWidth = 2.dp,
@@ -223,15 +249,17 @@ private fun OliverPill(
 //Round-end overlay's Oliver button (full-width, keeps the rich style)
 
 @Composable
-private fun OliversHootButton(vm: GameViewModel) {
+private fun OliversHootButton(vm: GameViewModel, isPremium: Boolean, onLockedClick: () -> Unit) {
     val hootState = vm.hootState
     OliverAdvisorButton(
         title = "Oliver's Hoot",
-        statusLabel = hootState.statusLabel,
+        statusLabel = if (isPremium) hootState.statusLabel else "Unlock with Premium",
         isLoading = hootState.isLoading,
         isSpeaking = hootState.isSpeaking,
-        enabled = vm.state.phase == GamePhase.ROUND_END,
-        onClick = vm::requestOliversHoot,
+        // Locked: tappable to open the paywall. Premium: phase-gated as before.
+        enabled = if (isPremium) vm.state.phase == GamePhase.ROUND_END else true,
+        locked = !isPremium,
+        onClick = { if (isPremium) vm.requestOliversHoot() else onLockedClick() },
     )
 }
 
@@ -242,6 +270,7 @@ private fun OliverAdvisorButton(
     isLoading: Boolean,
     isSpeaking: Boolean,
     enabled: Boolean,
+    locked: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
@@ -278,16 +307,19 @@ private fun OliverAdvisorButton(
                 overflow = TextOverflow.Clip,
             )
         }
-        if (isSpeaking) {
-            SpeakingBars(maxHeight = 22.dp, barWidth = 4.dp, spacing = 3.dp)
-        } else if (isLoading) {
-            CircularProgressIndicator(
+        when {
+            locked -> Icon(
+                Icons.Filled.Lock,
+                contentDescription = "Premium",
+                tint = BjColors.Accent,
+            )
+            isSpeaking -> SpeakingBars(maxHeight = 22.dp, barWidth = 4.dp, spacing = 3.dp)
+            isLoading -> CircularProgressIndicator(
                 modifier = Modifier.size(22.dp),
                 color = BjColors.Accent,
                 strokeWidth = 2.dp,
             )
-        } else {
-            Icon(
+            else -> Icon(
                 Icons.AutoMirrored.Filled.VolumeUp,
                 contentDescription = "Speak advice",
                 tint = BjColors.Neutral.copy(alpha = 0.8f),
@@ -457,10 +489,63 @@ private fun WinBars(
     }
 }
 
+// Locked equivalent of WinBars: same row footprint (so the rail doesn't jump
+// between free/premium) with dashed placeholder tracks and a lock instead of a
+// percentage. The whole stack is tappable → paywall.
+@Composable
+private fun LockedWinBars(
+    actions: Set<PlayerAction>,
+    onUnlock: () -> Unit,
+) {
+    val labels = buildList {
+        add("Hit")
+        if (PlayerAction.Split in actions) { add("Split H1"); add("Split H2") }
+        if (PlayerAction.Double in actions) add("Double")
+        add("Stand")
+    }
+    val locked = BjColors.Neutral.copy(alpha = 0.35f)
+    Column(
+        Modifier.clickable { onUnlock() },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        labels.forEach { label ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    color = locked,
+                    modifier = Modifier.width(64.dp),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(BjColors.Neutral.copy(alpha = 0.12f)),
+                )
+                Box(Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = "Unlock Win Chance",
+                        tint = BjColors.Accent,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 //Round-end overlay
 
 @Composable
 fun RoundEndOverlay(vm: GameViewModel) {
+    val isPremium by LocalEntitlements.current.isPremium.collectAsState()
+    val paywall = LocalPaywall.current
     Box(
         Modifier
             .fillMaxSize()
@@ -495,7 +580,7 @@ fun RoundEndOverlay(vm: GameViewModel) {
                 )
             }
             Spacer(Modifier.height(18.dp))
-            OliversHootButton(vm)
+            OliversHootButton(vm, isPremium) { paywall.present("advisor_roundend") }
             Spacer(Modifier.height(18.dp))
             GoldButton("NEXT HAND", Modifier.fillMaxWidth()) { vm.startNextHand() }
         }
