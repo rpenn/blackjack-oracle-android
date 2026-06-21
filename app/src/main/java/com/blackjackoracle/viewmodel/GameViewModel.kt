@@ -12,7 +12,6 @@ import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.model.PlayerAction
 import com.blackjackoracle.service.AdvisorContext
-import com.blackjackoracle.service.AdvisorPromptBuilder
 import com.blackjackoracle.service.AdvisorService
 import com.blackjackoracle.service.SoundManager
 import com.blackjackoracle.service.TtsService
@@ -257,13 +256,13 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     ): Job {
         val snapshot = state
         val available = availableActions()
-        val key = AdvisorPromptBuilder.cacheKey(snapshot)
+        val key = AdvisorService.cacheKey(snapshot)
         return viewModelScope.launch {
             setState(AdvisorUiState(isLoading = true, statusLabel = "Thinking..."))
             try {
                 val token = authToken
                 val text = getCached(key) ?: withContext(Dispatchers.IO) {
-                    advisor.advice(AdvisorPromptBuilder.build(AdvisorContext.from(snapshot, available)), token)
+                    advisor.advice(AdvisorContext.from(snapshot, available), token)
                 }.also { putCached(key, it) }
                 // Keep the "Thinking..." spinner through the audio fetch/decode
                 // — only flip to the speaking bars once playback truly begins,
