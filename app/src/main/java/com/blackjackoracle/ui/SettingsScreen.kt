@@ -21,7 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Refresh
@@ -32,6 +34,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,19 +59,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.blackjackoracle.BuildConfig
+import com.blackjackoracle.data.CaptionPreferences
 import com.blackjackoracle.ui.theme.BjColors
 import kotlinx.coroutines.launch
 
 private const val SUPPORT_EMAIL = "support@angelfirelabs.com"
 
 /**
- * Settings / About — the home for account, subscription, legal, and support,
- * reachable from the Setup screen's gear. Ports iOS SettingsView. Play Store
- * policy (like App Review) expects Restore + the legal links reachable from
- * normal navigation, not only the paywall.
+ * Settings / About — the home for account, subscription, accessibility, legal,
+ * and support, reachable from the Setup screen's gear. Ports iOS SettingsView.
+ * Play Store policy (like App Review) expects Restore + the legal links
+ * reachable from normal navigation, not only the paywall.
  *
- * Note: the iOS "Accessibility → Oliver's Captions" section is intentionally
- * omitted until the captions feature itself is ported to Android.
+ * The Accessibility switches write the same DataStore keys as the in-game CC
+ * chip (via [CaptionPreferences]), so the two toggle points stay in sync.
  */
 @Composable
 fun SettingsScreen(onDismiss: () -> Unit) {
@@ -82,6 +87,12 @@ fun SettingsScreen(onDismiss: () -> Unit) {
     var showTerms by remember { mutableStateOf(false) }
     var isRestoring by remember { mutableStateOf(false) }
     var restoreMessage by remember { mutableStateOf<String?>(null) }
+
+    // Caption prefs read straight from DataStore (the process-wide singleton the
+    // in-game CC chip also writes), so both toggle points stay in lockstep.
+    val captionPrefs = remember { CaptionPreferences(context) }
+    val showCaptions by captionPrefs.showCaptions.collectAsState(initial = false)
+    val captionOnly by captionPrefs.captionOnly.collectAsState(initial = false)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -152,6 +163,30 @@ fun SettingsScreen(onDismiss: () -> Unit) {
                                 },
                             )
                         }
+                    }
+
+                    // Accessibility
+                    SettingsCard(
+                        header = "Accessibility",
+                        footer = "Captions show Oliver's advice as text while he speaks. " +
+                            "Caption-Only Mode keeps the text and mutes his voice. Captions " +
+                            "turn on automatically when captions are enabled in your device's " +
+                            "accessibility settings.",
+                    ) {
+                        SettingsSwitchRow(
+                            icon = Icons.Filled.ClosedCaption,
+                            title = "Oliver's Captions",
+                            checked = showCaptions,
+                            onCheckedChange = { scope.launch { captionPrefs.setShowCaptions(it) } },
+                        )
+                        SettingsSwitchRow(
+                            icon = Icons.AutoMirrored.Filled.VolumeOff,
+                            title = "Caption-Only Mode",
+                            checked = captionOnly,
+                            // Caption-Only is meaningless without captions on.
+                            enabled = showCaptions,
+                            onCheckedChange = { scope.launch { captionPrefs.setCaptionOnly(it) } },
+                        )
                     }
 
                     // Subscription
@@ -345,6 +380,44 @@ private fun SettingsRow(
             modifier = Modifier.weight(1f),
         )
         trailing?.invoke()
+    }
+}
+
+/** A settings row whose trailing control is a Material 3 Switch. */
+@Composable
+private fun SettingsSwitchRow(
+    icon: ImageVector,
+    title: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier)
+            .alpha(if (enabled) 1f else 0.5f)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        Text(
+            title,
+            color = Color.White,
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = BjColors.Accent,
+                uncheckedTrackColor = Color.White.copy(alpha = 0.12f),
+            ),
+        )
     }
 }
 

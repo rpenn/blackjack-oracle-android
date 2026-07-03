@@ -18,6 +18,7 @@ mockito = "5.11.0"
 mockitoKotlin = "5.3.1"
 revenuecat = "8.25.0"
 securityCrypto = "1.1.0-alpha06"
+datastore = "1.1.1"
 json = "20240303"
 
 [libraries]
@@ -49,6 +50,7 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 revenuecat-purchases = { group = "com.revenuecat.purchases", name = "purchases", version.ref = "revenuecat" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 
 [plugins]

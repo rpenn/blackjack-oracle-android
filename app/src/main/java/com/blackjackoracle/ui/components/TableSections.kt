@@ -120,13 +120,14 @@ fun Inscription() {
 }
 
 @Composable
-fun PlayerArea(state: GameState) {
+fun PlayerArea(state: GameState, modifier: Modifier = Modifier) {
     if (state.phase == GamePhase.BETTING) {
-        BetBox(state.human.pendingBet)
+        Box(modifier) { BetBox(state.human.pendingBet) }
         return
     }
 
     Row(
+        modifier,
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

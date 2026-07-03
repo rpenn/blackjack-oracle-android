@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackjackoracle.BlackjackApp
+import com.blackjackoracle.caption.CaptionEngine
 import com.blackjackoracle.game.BlackjackTable
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
@@ -48,6 +49,31 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private val sound = SoundManager(app.applicationContext)
     private val advisor = AdvisorService()
     private val tts = TtsService(app.applicationContext)
+
+    /// Captions: one engine owned here (not in a composable), driven from the
+    /// same points that start/stop TTS. Composables are pure renderers of its
+    /// observable state. See caption/CaptionEngine.kt.
+    val captions = CaptionEngine(viewModelScope)
+    private val captionPrefs get() = getApplication<BlackjackApp>().captionPrefs
+
+    /// Compose-observable mirrors of the persisted caption prefs, kept in sync by
+    /// collecting the DataStore flows. Writes go through DataStore and echo back.
+    var captionsEnabled by mutableStateOf(false)
+        private set
+    var captionOnly by mutableStateOf(false)
+        private set
+
+    /// Whether the open caption is currently paused. Mirrored here (rather than
+    /// read off TtsService, whose flag isn't Compose state) so the card's
+    /// pause/resume icon recomposes. Covers both spoken pause and reading pause.
+    var captionPaused by mutableStateOf(false)
+        private set
+
+    init {
+        captions.setPlayhead { tts.currentPositionMs() to tts.durationMs() }
+        viewModelScope.launch { captionPrefs.showCaptions.collect { captionsEnabled = it } }
+        viewModelScope.launch { captionPrefs.captionOnly.collect { captionOnly = it } }
+    }
 
     private val billing get() = getApplication<BlackjackApp>()
     /// Bearer token for the AI endpoints: the active trial JWT, else the
@@ -101,6 +127,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         askJob?.cancel(); askJob = null
         hootJob?.cancel(); hootJob = null
         tts.stop()
+        captions.cancel()
+        captionPaused = false
         advisorState = AdvisorUiState(statusLabel = "Tap for advice")
         hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
     }
@@ -185,6 +213,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun handlePlayerAction(action: PlayerAction) {
+        // Committing an action makes the open Ask-Oliver advice stale: dismiss
+        // the caption, stop any in-flight speech, and clear the ask cache so the
+        // next Ask Oliver fetches fresh advice. Runs on every action, including
+        // each hit of a multi-hit turn. (Matches iOS's humanActionCount reset.)
+        resetInGameCaption()
         table.handleAction(action)
         sync()
         when (action) {
@@ -264,13 +297,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
                 val text = getCached(key) ?: withContext(Dispatchers.IO) {
                     advisor.advice(AdvisorContext.from(snapshot, available), token)
                 }.also { putCached(key, it) }
-                // Keep the "Thinking..." spinner through the audio fetch/decode
-                // — only flip to the speaking bars once playback truly begins,
-                // otherwise the bars animate over silence (most visible on the
-                // longer Hoot recap whose audio takes longer to fetch).
-                tts.speak(text, token) {
-                    setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Speaking..."))
-                }
+                present(text, token, setState)
             } catch (e: CancellationException) {
                 // Don't swallow cancellation — let the job complete cleanly.
                 throw e
@@ -280,6 +307,126 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             }
             setState(AdvisorUiState(statusLabel = idleLabel))
         }
+    }
+
+    /// Presents the fetched advice: captions + audio, captions-only (no network
+    /// TTS call), or plain audio, per the persisted prefs. Mirrors the iOS
+    /// `present(_:)`. Suspends until the utterance/reading finishes (or the
+    /// engine is cancelled) so the caller can then set the idle label.
+    private suspend fun present(
+        text: String,
+        token: String?,
+        setState: (AdvisorUiState) -> Unit,
+    ) {
+        captionPaused = false
+        if (captionsEnabled && captionOnly) {
+            // Caption-Only Mode: no audio at all — skip the /tts network call and
+            // self-pace the transcript. Suspend until it reads out or is stopped.
+            setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Captioning..."))
+            captions.begin(text, spoken = false)
+            while (captions.isActive && !captions.isFinished) delay(CAPTION_POLL_MS)
+            return
+        }
+        if (captionsEnabled) captions.begin(text, spoken = true)
+        // Keep the "Thinking..." spinner through the audio fetch/decode — only
+        // flip to the speaking bars once playback truly begins, otherwise the
+        // bars animate over silence (most visible on the longer Hoot recap whose
+        // audio takes longer to fetch).
+        tts.speak(text, token) {
+            setState(AdvisorUiState(isLoading = false, isSpeaking = true, statusLabel = "Speaking..."))
+        }
+        // Audio ended naturally → snap the transcript to the end and swap the
+        // pause control for a replay button. No-op if the engine was cancelled
+        // (stop / action reset) while the audio was playing.
+        captions.finish()
+    }
+
+    // Caption controls — called by the CaptionCard.
+
+    fun captionTogglePause() {
+        if (tts.isSpeaking || tts.isPaused) {
+            if (tts.isPaused) tts.resume() else tts.pause()
+            captionPaused = tts.isPaused
+        } else {
+            captions.togglePause()
+            captionPaused = captions.isPaused
+        }
+    }
+
+    fun captionStop() {
+        captions.cancel()
+        askJob?.cancel(); askJob = null
+        hootJob?.cancel(); hootJob = null
+        tts.stop()
+        captionPaused = false
+        advisorState = AdvisorUiState(statusLabel = "Tap for advice")
+        hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
+    }
+
+    fun updateCaptionsEnabled(v: Boolean) {
+        captionsEnabled = v
+        viewModelScope.launch { captionPrefs.setShowCaptions(v) }
+    }
+
+    fun updateCaptionOnly(v: Boolean) {
+        captionOnly = v
+        viewModelScope.launch { captionPrefs.setCaptionOnly(v) }
+    }
+
+    /// CC-chip toggle. Turning on mid-speech starts the transcript from the
+    /// advice already playing; turning off dismisses the card.
+    fun toggleCaptions() {
+        val next = !captionsEnabled
+        updateCaptionsEnabled(next)
+        if (next) {
+            if (tts.isSpeaking || tts.isPaused) {
+                currentAdviceText()?.let { captions.begin(it, spoken = true) }
+            }
+        } else {
+            captions.cancel()
+        }
+    }
+
+    /// Replays the cached advice without a new advisor/LLM call. Re-fetches the
+    /// TTS audio (skipped in caption-only mode). Driven by the finished card's
+    /// play button.
+    fun replayCaption() {
+        val advice = captions.text
+        if (advice.isEmpty()) return
+        val roundEnd = state.phase == GamePhase.ROUND_END
+        captionPaused = false
+        if (captionsEnabled && captionOnly) {
+            captions.begin(advice, spoken = false)
+            return
+        }
+        val token = authToken
+        val job = viewModelScope.launch {
+            captions.begin(advice, spoken = true)
+            try {
+                tts.speak(advice, token) {}
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Audio re-fetch failed; leave the transcript snapped to the end.
+            }
+            captions.finish()
+        }
+        if (roundEnd) hootJob = job else askJob = job
+    }
+
+    private fun currentAdviceText(): String? =
+        if (state.phase == GamePhase.ROUND_END) lastHootAdvice else lastAskAdvice
+
+    /// Dismiss the in-game caption and invalidate the ask cache. Called when the
+    /// player commits an action so the next Ask Oliver is fresh.
+    private fun resetInGameCaption() {
+        captions.cancel()
+        askJob?.cancel(); askJob = null
+        tts.stop()
+        captionPaused = false
+        lastAskKey = null
+        lastAskAdvice = null
+        advisorState = AdvisorUiState(statusLabel = "Tap for advice")
     }
 
     private suspend fun runDealerAndSettleInline() {
@@ -324,6 +471,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         hootJob?.cancel(); hootJob = null
         insuranceAutoDeclineJob?.cancel(); insuranceAutoDeclineJob = null
         tts.stop()
+        captions.cancel()
+        captionPaused = false
     }
 
     /// Advisor jobs and audio are per-hand. Without this, a Hoot started at one
@@ -335,6 +484,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         askJob?.cancel(); askJob = null
         hootJob?.cancel(); hootJob = null
         tts.stop()
+        captions.cancel()
+        captionPaused = false
         advisorState = AdvisorUiState(statusLabel = "Tap for advice")
         hootState = AdvisorUiState(statusLabel = "Tap to hear what went down")
     }
@@ -343,5 +494,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         stopAllJobsAndAudio()
         sound.release()
         super.onCleared()
+    }
+
+    private companion object {
+        /// Poll cadence while waiting out a caption-only reading (no audio to
+        /// suspend on). Matches the engine's own ~8/sec tick.
+        const val CAPTION_POLL_MS = 125L
     }
 }
