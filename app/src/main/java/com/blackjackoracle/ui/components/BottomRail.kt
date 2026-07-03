@@ -1,5 +1,6 @@
 package com.blackjackoracle.ui.components
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -85,21 +86,48 @@ fun BottomRail(
             .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Displayed balance subtracts the pending bet so balance + bet stays
-        // constant as the user stacks chips during BETTING. `pendingBet` is
-        // zeroed by beginHand() once the deal fires, so during PLAYER_TURNS
-        // this reduces to the raw chip count.
-        InfoRow(
-            chips = state.human.chips - state.human.pendingBet,
-            askOliver = vm.advisorState,
-            askOliverEnabled = isAskOliverEnabled(state),
-            isPremium = isPremium,
-            onAskOliver = {
-                if (isPremium) vm.requestAskOliverAdvice()
-                else paywall.present("advisor_ingame")
-            },
-            showWinChanceLabel = showWinChanceLabel,
-        )
+        // When captioning in-game, the Oliver pill morphs into the caption card
+        // in the info row's place — the two are never on screen together. The
+        // card grows the rail, which (via the reactive rail-height measurement in
+        // GameTableScreen) floats the player zone up. Round-end captions render
+        // in RoundEndOverlay instead, so this is suppressed there.
+        val captioningInGame = isPremium && vm.captionsEnabled &&
+            vm.captions.isActive && state.phase != GamePhase.ROUND_END
+        Crossfade(targetState = captioningInGame, label = "oliverPillMorph") { captioning ->
+            if (captioning) {
+                CaptionCard(
+                    engine = vm.captions,
+                    captionsEnabled = vm.captionsEnabled,
+                    isPaused = vm.captionPaused,
+                    isRoundEnd = false,
+                    onTogglePause = vm::captionTogglePause,
+                    onStop = vm::captionStop,
+                    onReplay = vm::replayCaption,
+                    onToggleCaptions = vm::toggleCaptions,
+                )
+            } else {
+                // Displayed balance subtracts the pending bet so balance + bet
+                // stays constant as the user stacks chips during BETTING.
+                // `pendingBet` is zeroed by beginHand() once the deal fires, so
+                // during PLAYER_TURNS this reduces to the raw chip count.
+                InfoRow(
+                    chips = state.human.chips - state.human.pendingBet,
+                    askOliver = vm.advisorState,
+                    askOliverEnabled = isAskOliverEnabled(state),
+                    isPremium = isPremium,
+                    onAskOliver = {
+                        if (isPremium) vm.requestAskOliverAdvice()
+                        else paywall.present("advisor_ingame")
+                    },
+                    showWinChanceLabel = showWinChanceLabel,
+                    // CC chip only for premium users — the advisor (and thus
+                    // anything to caption) is premium-gated.
+                    showCaptionChip = isPremium,
+                    captionsOn = vm.captionsEnabled,
+                    onToggleCaptions = vm::toggleCaptions,
+                )
+            }
+        }
         // Only show controls in phases where the player can act. Rendering
         // ActionControls during DEALING / DEALER_TURN / SETTLEMENT / ROUND_END
         // shows every button in its disabled state (25% alpha container) —
@@ -135,6 +163,9 @@ private fun InfoRow(
     isPremium: Boolean,
     onAskOliver: () -> Unit,
     showWinChanceLabel: Boolean,
+    showCaptionChip: Boolean,
+    captionsOn: Boolean,
+    onToggleCaptions: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth(),
@@ -153,6 +184,9 @@ private fun InfoRow(
             enabled = if (isPremium) askOliverEnabled else true,
             locked = !isPremium,
             onClick = onAskOliver,
+            showCaptionChip = showCaptionChip,
+            captionsOn = captionsOn,
+            onToggleCaptions = onToggleCaptions,
         )
         Spacer(Modifier.weight(1f))
         WinChanceLabel(
@@ -204,14 +238,20 @@ private fun OliverPill(
     enabled: Boolean,
     locked: Boolean,
     onClick: () -> Unit,
+    showCaptionChip: Boolean,
+    captionsOn: Boolean,
+    onToggleCaptions: () -> Unit,
 ) {
+    // The pill background is shared, but "Ask Oliver" and the CC chip are two
+    // independent tap targets: the row's clickable asks Oliver, while the CC
+    // chip's own clickable (nested, so it wins its region) toggles captions.
     Row(
         Modifier
             .clip(RoundedCornerShape(50))
             .border(1.dp, BjColors.Accent.copy(alpha = 0.45f), RoundedCornerShape(50))
             .background(Color.Black.copy(alpha = 0.30f))
             .clickable(enabled = enabled && !isLoading) { onClick() }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = if (showCaptionChip) 4.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -243,6 +283,9 @@ private fun OliverPill(
                 strokeWidth = 2.dp,
             )
         }
+        if (showCaptionChip) {
+            CCChip(enabled = captionsOn, onClick = onToggleCaptions)
+        }
     }
 }
 
@@ -260,6 +303,10 @@ private fun OliversHootButton(vm: GameViewModel, isPremium: Boolean, onLockedCli
         enabled = if (isPremium) vm.state.phase == GamePhase.ROUND_END else true,
         locked = !isPremium,
         onClick = { if (isPremium) vm.requestOliversHoot() else onLockedClick() },
+        // CC chip only for premium — captions have nothing to caption otherwise.
+        showCaptionChip = isPremium,
+        captionsOn = vm.captionsEnabled,
+        onToggleCaptions = vm::toggleCaptions,
     )
 }
 
@@ -272,6 +319,9 @@ private fun OliverAdvisorButton(
     enabled: Boolean,
     locked: Boolean,
     onClick: () -> Unit,
+    showCaptionChip: Boolean = false,
+    captionsOn: Boolean = false,
+    onToggleCaptions: () -> Unit = {},
 ) {
     Row(
         Modifier
@@ -280,7 +330,7 @@ private fun OliverAdvisorButton(
             .border(1.dp, BjColors.Accent.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
             .background(Color.Black.copy(alpha = 0.18f))
             .clickable(enabled = enabled && !isLoading) { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (showCaptionChip) 6.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -306,6 +356,10 @@ private fun OliverAdvisorButton(
                 softWrap = false,
                 overflow = TextOverflow.Clip,
             )
+        }
+        if (showCaptionChip) {
+            CCChip(enabled = captionsOn, onClick = onToggleCaptions)
+            Spacer(Modifier.width(4.dp))
         }
         when {
             locked -> Icon(
@@ -580,7 +634,25 @@ fun RoundEndOverlay(vm: GameViewModel) {
                 )
             }
             Spacer(Modifier.height(18.dp))
-            OliversHootButton(vm, isPremium) { paywall.present("advisor_roundend") }
+            // Same morph as in-game: the Hoot button becomes the caption card
+            // (rendered inline here, taller cap) while Oliver recaps the hand.
+            val captioningRoundEnd = isPremium && vm.captionsEnabled && vm.captions.isActive
+            Crossfade(targetState = captioningRoundEnd, label = "hootMorph") { captioning ->
+                if (captioning) {
+                    CaptionCard(
+                        engine = vm.captions,
+                        captionsEnabled = vm.captionsEnabled,
+                        isPaused = vm.captionPaused,
+                        isRoundEnd = true,
+                        onTogglePause = vm::captionTogglePause,
+                        onStop = vm::captionStop,
+                        onReplay = vm::replayCaption,
+                        onToggleCaptions = vm::toggleCaptions,
+                    )
+                } else {
+                    OliversHootButton(vm, isPremium) { paywall.present("advisor_roundend") }
+                }
+            }
             Spacer(Modifier.height(18.dp))
             GoldButton("NEXT HAND", Modifier.fillMaxWidth()) { vm.startNextHand() }
         }

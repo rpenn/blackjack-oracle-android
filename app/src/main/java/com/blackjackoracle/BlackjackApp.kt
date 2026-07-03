@@ -1,6 +1,7 @@
 package com.blackjackoracle
 
 import android.app.Application
+import com.blackjackoracle.data.CaptionPreferences
 import com.blackjackoracle.service.billing.EntitlementStore
 import com.blackjackoracle.service.billing.PaywallController
 import com.blackjackoracle.service.billing.PurchaseManager
@@ -19,6 +20,8 @@ class BlackjackApp : Application() {
         private set
     lateinit var purchases: PurchaseManager
         private set
+    lateinit var captionPrefs: CaptionPreferences
+        private set
     val paywall = PaywallController()
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -30,5 +33,7 @@ class BlackjackApp : Application() {
         purchases = PurchaseManager(applicationContext, entitlements)
         purchases.configure()
         appScope.launch { purchases.start() }
+        captionPrefs = CaptionPreferences(this)
+        appScope.launch { captionPrefs.seedDefaultsIfNeeded() }
     }
 }

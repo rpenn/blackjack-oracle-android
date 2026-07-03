@@ -31,6 +31,30 @@ class TtsService(
     private val lock = Any()
     @Volatile private var player: MediaPlayer? = null
     @Volatile private var currentTempFile: File? = null
+    @Volatile private var paused = false
+
+    /// True while audio is actively playing (false while paused or idle). Read by
+    /// the ViewModel to decide whether a caption "pause" targets the MediaPlayer
+    /// (spoken mode) or the reading clock (caption-only mode).
+    val isSpeaking: Boolean
+        get() = synchronized(lock) { runCatching { player?.isPlaying == true }.getOrDefault(false) }
+    val isPaused: Boolean get() = paused
+
+    /// Playhead for CaptionEngine. Guarded against the IllegalState that
+    /// currentPosition/duration throw once the player has been torn down.
+    /// duration is -1 until prepare() completes; the engine treats <=0 as "wait".
+    fun currentPositionMs(): Long =
+        synchronized(lock) { runCatching { player?.currentPosition?.toLong() }.getOrNull() ?: 0L }
+    fun durationMs(): Long =
+        synchronized(lock) { runCatching { player?.duration?.toLong() }.getOrNull() ?: 0L }
+
+    fun pause() = synchronized(lock) {
+        player?.takeIf { runCatching { it.isPlaying }.getOrDefault(false) }?.let { it.pause(); paused = true }
+    }
+
+    fun resume() = synchronized(lock) {
+        if (paused) { paused = false; runCatching { player?.start() } }
+    }
 
     /// `onStart` fires on the calling dispatcher the instant audio playback
     /// actually begins — after the network fetch and temp-file write — so the
@@ -47,6 +71,7 @@ class TtsService(
                 player = mp
                 currentTempFile = file
             }
+            paused = false
             mp.start()
             onStart()
             // Drive completion off the real playback position rather than an
@@ -54,13 +79,19 @@ class TtsService(
             // fail to fire, leaving speak() suspended past the end of the audio
             // so the "speaking" UI stayed stuck until the screen turned off.
             // Polling isPlaying returns the instant playback actually stops.
-            while (isPlaying(mp)) {
+            //
+            // `paused` keeps us suspended across a caption-driven pause: a paused
+            // MediaPlayer reports isPlaying=false, which would otherwise let this
+            // loop fall through and tear the player down mid-utterance. stop()
+            // clears `paused` so a real stop still ends the loop.
+            while (isPlaying(mp) || paused) {
                 delay(POLL_INTERVAL_MS)
             }
         } finally {
             synchronized(lock) {
                 if (player === mp) player = null
                 if (currentTempFile === file) currentTempFile = null
+                paused = false
             }
             try { mp.stop() } catch (_: Throwable) {}
             try { mp.release() } catch (_: Throwable) {}
@@ -81,6 +112,7 @@ class TtsService(
             activeFile = currentTempFile
             player = null
             currentTempFile = null
+            paused = false
         }
         if (active != null) {
             try { active.stop() } catch (_: Throwable) {}

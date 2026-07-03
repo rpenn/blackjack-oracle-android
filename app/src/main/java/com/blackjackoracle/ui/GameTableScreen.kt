@@ -1,6 +1,7 @@
 package com.blackjackoracle.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,6 +39,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -118,7 +121,23 @@ fun GameTableScreen(vm: GameViewModel) {
             Spacer(Modifier.height(22.dp))
             Inscription()
             Spacer(Modifier.weight(1f))
-            PlayerArea(state)
+            // While captioning in-game, gently shrink the player zone (anchored
+            // at its bottom) so, on small screens, the hand risen by the taller
+            // rail can't climb into the inscription. Springs back on dismiss.
+            val captioning = isPremium && vm.captionsEnabled &&
+                vm.captions.isActive && state.phase != GamePhase.ROUND_END
+            val playerScale by animateFloatAsState(
+                targetValue = if (captioning) 0.85f else 1f,
+                label = "playerScale",
+            )
+            PlayerArea(
+                state,
+                Modifier.graphicsLayer {
+                    scaleX = playerScale
+                    scaleY = playerScale
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                },
+            )
             Spacer(Modifier.height(20.dp))
         }
 

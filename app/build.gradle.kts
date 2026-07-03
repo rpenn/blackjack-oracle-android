@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.revenuecat.purchases)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
