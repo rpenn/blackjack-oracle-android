@@ -96,7 +96,26 @@ class PurchaseManager(
     }
 
     private fun applyEntitlement(info: CustomerInfo) {
-        entitlements.entitled = info.entitlements[ENTITLEMENT_ID]?.isActive == true
+        val entitlement = info.entitlements[ENTITLEMENT_ID]
+        entitlements.entitled = entitlement?.isActive == true
+        entitlements.activeProductId =
+            if (entitlement?.isActive == true) entitlement.productIdentifier else null
+    }
+
+    /// Play Store URL for managing the subscription. Deep-links to the exact plan
+    /// when we know which product is active; otherwise falls back to the general
+    /// subscriptions center. Android analog of Apple's account/subscriptions link.
+    fun manageSubscriptionUrl(): String {
+        // Google Play wants the subscription (product) id without any base-plan
+        // suffix; productIdentifier is already the product id, but strip a
+        // `:basePlan` defensively in case the SDK ever includes it.
+        val sku = entitlements.activeProductId?.substringBefore(":")
+        return if (sku != null) {
+            "https://play.google.com/store/account/subscriptions" +
+                "?sku=$sku&package=${context.packageName}"
+        } else {
+            "https://play.google.com/store/account/subscriptions"
+        }
     }
 
     companion object {

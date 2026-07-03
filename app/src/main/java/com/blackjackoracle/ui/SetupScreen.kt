@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -45,7 +46,7 @@ import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
 
 @Composable
-fun SetupScreen(onStart: () -> Unit) {
+fun SetupScreen(onStart: () -> Unit, onSettings: () -> Unit = {}) {
     var showHelp by remember { mutableStateOf(false) }
     val backdrop = remember { Brush.verticalGradient(listOf(BjColors.BgTop, BjColors.BgBottom)) }
 
@@ -56,6 +57,17 @@ fun SetupScreen(onStart: () -> Unit) {
             .systemBarsPadding()
             .padding(22.dp),
     ) {
+        IconButton(
+            onClick = onSettings,
+            modifier = Modifier.align(Alignment.TopStart),
+        ) {
+            Icon(
+                Icons.Filled.Settings,
+                contentDescription = "Settings",
+                tint = BjColors.Neutral.copy(alpha = 0.65f),
+            )
+        }
+
         IconButton(
             onClick = { showHelp = true },
             modifier = Modifier.align(Alignment.TopEnd),

@@ -28,6 +28,10 @@ class EntitlementStore(
             recompute()
         }
 
+    /// Play product id of the active paid subscription, if any. Set by
+    /// PurchaseManager; used to deep-link "Manage Subscription" to the exact plan.
+    var activeProductId: String? = null
+
     private var trialExpiryEpochSeconds: Long? = null
     private var trialToken: String? = null
 

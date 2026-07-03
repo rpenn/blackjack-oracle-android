@@ -36,6 +36,8 @@ import com.blackjackoracle.viewmodel.GameViewModel
 @Composable
 fun AppRoot(vm: GameViewModel = viewModel()) {
     Box(Modifier.fillMaxSize()) {
+        var showSettings by remember { mutableStateOf(false) }
+
         AnimatedContent(
             targetState = vm.state.phase,
             transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(250)) },
@@ -44,7 +46,10 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
             // Exhaustive when — adding a phase forces a compile-time decision here
             // rather than silently routing through GameTableScreen.
             when (phase) {
-                GamePhase.SETUP -> SetupScreen(onStart = vm::startGame)
+                GamePhase.SETUP -> SetupScreen(
+                    onStart = vm::startGame,
+                    onSettings = { showSettings = true },
+                )
                 GamePhase.GAME_OVER -> GameOverScreen(vm)
                 GamePhase.BETTING,
                 GamePhase.DEALING,
@@ -72,6 +77,10 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
         }
         if (showPromo) {
             PromoCodeSheet(onDismiss = { showPromo = false })
+        }
+
+        if (showSettings) {
+            SettingsScreen(onDismiss = { showSettings = false })
         }
     }
 }

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>End User License Agreement – Angelfire Labs LLC</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background: #ffffff;
+    }
+
+    .page-wrapper {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 60px 32px 100px;
+    }
+
+    /* Header */
+    .doc-header {
+      border-bottom: 3px solid #1a1a1a;
+      padding-bottom: 28px;
+      margin-bottom: 48px;
+    }
+    .doc-header .company {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 10px;
+    }
+    .doc-header h1 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #1a1a1a;
+      margin-bottom: 14px;
+    }
+    .doc-header .meta {
+      font-size: 14px;
+      color: #666;
+    }
+    .doc-header .meta span {
+      margin-right: 24px;
+    }
+
+    /* Section */
+    section {
+      margin-bottom: 44px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-top: 22px;
+      margin-bottom: 8px;
+    }
+    p {
+      margin-bottom: 14px;
+      color: #333;
+    }
+    p:last-child {
+      margin-bottom: 0;
+    }
+    ul {
+      margin: 10px 0 14px 20px;
+      color: #333;
+    }
+    ul li {
+      margin-bottom: 6px;
+    }
+    a {
+      color: #1a1a1a;
+      text-decoration: underline;
+    }
+    a:hover {
+      opacity: 0.7;
+    }
+
+    /* Highlight / warning boxes */
+    .highlight-box {
+      background: #f7f7f7;
+      border-left: 4px solid #1a1a1a;
+      padding: 18px 22px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 28px;
+    }
+    .highlight-box p {
+      margin: 0;
+      font-size: 15px;
+      color: #333;
+    }
+
+    .warning-box {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 18px 22px;
+      border-radius: 0 6px 6px 0;
+      margin: 18px 0;
+    }
+    .warning-box p {
+      margin: 0;
+      font-size: 15px;
+      color: #333;
+    }
+    .warning-box .warning-label {
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #b45309;
+      margin-bottom: 6px;
+    }
+
+    /* Subscription table */
+    .sub-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    .sub-table th {
+      background: #1a1a1a;
+      color: #fff;
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+    }
+    .sub-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: top;
+      color: #333;
+    }
+    .sub-table tr:last-child td {
+      border-bottom: none;
+    }
+    .sub-table tr:nth-child(even) td {
+      background: #fafafa;
+    }
+
+    /* Feature pills */
+    .feature-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .feature-card {
+      flex: 1;
+      min-width: 200px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .feature-card .tier-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .feature-card.free .tier-label { color: #059669; }
+    .feature-card.premium .tier-label { color: #7c3aed; }
+    .feature-card h3 {
+      margin-top: 0;
+      font-size: 15px;
+    }
+    .feature-card ul {
+      margin: 8px 0 0 16px;
+      font-size: 14px;
+    }
+
+    /* Contact box */
+    .contact-box {
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 10px;
+      padding: 28px 32px;
+      margin-top: 10px;
+    }
+    .contact-box h3 {
+      color: #fff;
+      margin-top: 0;
+      font-size: 18px;
+    }
+    .contact-box p {
+      color: #ccc;
+      margin-bottom: 8px;
+    }
+    .contact-box a {
+      color: #fff;
+    }
+
+    /* Caps / legal */
+    .caps-block {
+      font-size: 14px;
+      color: #444;
+      background: #f7f7f7;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 18px 22px;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .doc-footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .page-wrapper { padding: 32px 20px 60px; }
+      .doc-header h1 { font-size: 24px; }
+      h2 { font-size: 18px; }
+      .feature-card { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <header class="doc-header">
+    <p class="company">Angelfire Labs LLC</p>
+    <h1>End User License Agreement</h1>
+    <div class="meta">
+      <span><strong>Effective Date:</strong> May 8, 2026</span>
+      <span><strong>Last Updated:</strong> May 8, 2026</span>
+    </div>
+  </header>
+
+  <!-- Preamble -->
+  <section>
+    <div class="highlight-box">
+      <p><strong>Please read this agreement carefully before using any Angelfire Labs application.</strong> By downloading, installing, or using our Apps, you agree to be bound by the terms of this End User License Agreement ("Agreement"). If you do not agree, do not install or use the App.</p>
+    </div>
+
+    <!-- POINT 1: Explicit acknowledgment that EULA is between user and Angelfire Labs only, not Apple -->
+    <p>This End User License Agreement ("Agreement") is a legal agreement solely between you ("you" or "User") and Angelfire Labs LLC, a limited liability company ("Angelfire Labs," "we," "us," or "our"), governing your use of all mobile applications published by Angelfire Labs, including <em>Poker Oracle</em>, our Blackjack game, and any future titles published under the Angelfire Labs name (each an "App," and collectively, "our Apps"). <strong>This Agreement is not an agreement with Apple Inc. Apple is not a party to this Agreement and is not responsible for the Apps or their content. As between Angelfire Labs and Apple, Angelfire Labs is solely responsible for the Apps and all content within them.</strong></p>
+    <p>This Agreement is also subject to Apple's standard End User License Agreement for apps obtained through the Apple App Store, available at <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener">apple.com/legal/internet-services/itunes/dev/stdeula</a>. In the event of a conflict between this Agreement and Apple's EULA, Apple's EULA controls with respect to Apple-specific terms.</p>
+  </section>
+
+  <!-- 1. License Grant -->
+  <section>
+    <h2>1. License Grant</h2>
+    <p>Subject to your compliance with this Agreement, Angelfire Labs grants you a limited, non-exclusive, non-transferable, revocable license to download, install, and use a single copy of each Angelfire Labs App on an Apple iOS device that you own or control, solely for your personal, non-commercial entertainment purposes.</p>
+    <p>This license does not include the right to:</p>
+    <ul>
+      <li>Sublicense, sell, resell, transfer, assign, or otherwise commercially exploit any App;</li>
+      <li>Modify, adapt, translate, reverse engineer, decompile, disassemble, or create derivative works based on any App;</li>
+      <li>Remove, obscure, or alter any proprietary rights notices embedded in or displayed by any App;</li>
+      <li>Use any App for any unlawful purpose or in any manner inconsistent with this Agreement.</li>
+    </ul>
+    <p>All rights not expressly granted in this Agreement are reserved by Angelfire Labs.</p>
+  </section>
+
+  <!-- 2. Free Features and Premium Features -->
+  <section>
+    <h2>2. Free Features and Premium Features</h2>
+    <p>Our Apps are offered on a freemium basis. Core gameplay is available to all users at no charge. Certain enhanced features require an active paid subscription, as described below.</p>
+
+    <div class="feature-row">
+      <div class="feature-card free">
+        <div class="tier-label">Free — All Users</div>
+        <h3>Core Gameplay</h3>
+        <ul>
+          <li>Full Texas Hold'em / Blackjack gameplay</li>
+          <li>AI-controlled opponents</li>
+          <li>Sound effects and animations</li>
+          <li>No real money, no wagering</li>
+        </ul>
+      </div>
+      <div class="feature-card premium">
+        <div class="tier-label">Premium — Subscription Required</div>
+        <h3>Enhanced Features</h3>
+        <ul>
+          <li>Win Chance: real-time win probability display</li>
+          <li>AI Advisor: spoken strategic advice via AI</li>
+        </ul>
+      </div>
+    </div>
+
+    <p style="margin-top: 20px;">Angelfire Labs reserves the right to modify the features included in the free or premium tiers at any time, subject to the notice provisions in Section 18.</p>
+  </section>
+
+  <!-- 3. Subscription Terms -->
+  <section>
+    <h2>3. Subscription Terms</h2>
+
+    <h3>3.1 Subscription Description</h3>
+    <p>Access to the Win Chance and AI Advisor features is sold as an auto-renewing subscription ("Premium Subscription"). A Premium Subscription grants access to the premium features in all current and future Angelfire Labs Apps for the duration of the subscription period.</p>
+
+    <h3>3.2 Billing and Renewal</h3>
+    <p>Subscriptions are billed through your Apple App Store account. The specific subscription price, billing frequency (e.g., monthly or annual), and any available free trial period are displayed at the point of purchase within the App and in the App Store listing. Prices are stated in your local currency and may include applicable taxes.</p>
+    <p>Your subscription <strong>automatically renews</strong> at the end of each billing period unless you cancel it at least 24 hours before the end of the current period. Your Apple ID account will be charged for renewal within 24 hours before the end of the current period. Apple manages all billing on our behalf.</p>
+
+    <h3>3.3 Free Trials</h3>
+    <p>We may offer a free trial period for the Premium Subscription. The duration of any available trial is displayed at the point of purchase. Your subscription will automatically convert to a paid subscription at the end of the trial unless you cancel before the trial expires. You will not be charged during a free trial period.</p>
+
+    <h3>3.4 Cancellation</h3>
+    <p>You may cancel your Premium Subscription at any time through your Apple ID account settings (Settings → [Your Name] → Subscriptions on your iOS device). Cancellation takes effect at the end of your current billing period; you will retain access to premium features until that date. Canceling a subscription does not entitle you to a refund for the current billing period.</p>
+
+    <h3>3.5 Refunds</h3>
+    <p>Because subscriptions are processed exclusively through Apple's App Store, all refund requests must be submitted to Apple and are subject to <a href="https://support.apple.com/en-us/111900" target="_blank" rel="noopener">Apple's refund policy</a>. Angelfire Labs does not process refunds directly. You can request a refund through Apple at <a href="https://reportaproblem.apple.com" target="_blank" rel="noopener">reportaproblem.apple.com</a>.</p>
+
+    <h3>3.6 Price Changes</h3>
+    <p>We reserve the right to change subscription pricing. If we increase the price of your subscription, we will provide you with advance notice, and Apple will notify you before your next billing period. You will have the opportunity to review the new price before your subscription renews. Continued use of the Premium Subscription after the price change takes effect constitutes your acceptance of the new pricing.</p>
+
+    <h3>3.7 Subscription Restoration</h3>
+    <p>If you delete and reinstall an App, or install an App on a new device, you can restore your active Premium Subscription by using the "Restore Purchases" function within the App, provided you are signed in with the same Apple ID used to make the original purchase.</p>
+
+    <table class="sub-table" style="margin-top:20px;">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Key Term</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Billing</td>
+          <td>Charged through your Apple ID account</td>
+        </tr>
+        <tr>
+          <td>Renewal</td>
+          <td>Automatic; renews unless cancelled 24+ hours before period end</td>
+        </tr>
+        <tr>
+          <td>Cancellation</td>
+          <td>Anytime via iOS Settings → Subscriptions</td>
+        </tr>
+        <tr>
+          <td>Refunds</td>
+          <td>Via Apple at reportaproblem.apple.com</td>
+        </tr>
+        <tr>
+          <td>Access after cancel</td>
+          <td>Continues until end of current paid period</td>
+        </tr>
+        <tr>
+          <td>Restore purchases</td>
+          <td>Use "Restore Purchases" in-app with same Apple ID</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 4. Entertainment Only — No Real Money Gambling -->
+  <section>
+    <h2>4. Entertainment Only — No Real Money Gambling</h2>
+    <div class="warning-box">
+      <div class="warning-label">Important</div>
+      <p>Our Apps involve simulated card and casino-style gameplay for entertainment purposes only. No real money is wagered, won, or lost. Virtual chips and in-game currency have no monetary value and cannot be redeemed, exchanged, or transferred for real currency, goods, or services of any kind.</p>
+    </div>
+    <p>Our Apps do not constitute gambling under any applicable law. Success in our Apps does not imply or guarantee success in real-money card games or casino environments. Any skills, strategies, or patterns observed while playing our Apps may not translate to real-world gambling, and reliance on such perceived patterns for real-money gambling is done entirely at your own risk.</p>
+    <p>Angelfire Labs does not hold any gambling license and does not offer real-money gaming. If you or someone you know has a concern about gambling behavior, we encourage you to seek support from appropriate resources in your jurisdiction.</p>
+  </section>
+
+  <!-- 5. AI Advisor Disclaimer -->
+  <section>
+    <h2>5. AI Advisor Disclaimer</h2>
+    <div class="warning-box">
+      <div class="warning-label">Read Carefully</div>
+      <p>The AI Advisor feature provides automated, AI-generated strategic commentary intended solely for entertainment and educational enjoyment within the context of our Apps. It does not constitute professional poker instruction, gambling advice, or any form of financial or strategic counsel.</p>
+    </div>
+    <p>The AI Advisor generates responses based on the current in-game state and is subject to the inherent limitations of AI language models, including occasional errors, omissions, or contextually inappropriate suggestions. Angelfire Labs makes no representation that the AI Advisor's suggestions are optimal, accurate, or suitable for any real-world application.</p>
+    <p><strong>You acknowledge and agree that:</strong></p>
+    <ul>
+      <li>The AI Advisor is an entertainment feature, not a coaching or advisory service;</li>
+      <li>You will not rely on the AI Advisor's suggestions in any real-money card game, casino, or gambling context;</li>
+      <li>Angelfire Labs is not responsible for any decisions you make — in our Apps or in any other context — based on advice provided by the AI Advisor;</li>
+      <li>The quality and availability of AI Advisor responses may vary depending on the underlying AI model and network conditions;</li>
+      <li>Angelfire Labs may change, update, or discontinue the AI Advisor or its underlying model at any time.</li>
+    </ul>
+  </section>
+
+  <!-- 6. Service Availability and Third-Party Dependencies -->
+  <section>
+    <h2>6. Service Availability and Third-Party Dependencies</h2>
+
+    <h3>6.1 On-Device Features</h3>
+    <p>The Win Chance feature is computed entirely on your device and does not depend on any external service. Its availability is not affected by network connectivity or server status.</p>
+
+    <h3>6.2 Network-Dependent Features</h3>
+    <p>The AI Advisor feature requires an active internet connection and depends on our backend API and third-party AI and text-to-speech services. These services may experience interruptions, outages, or periods of degraded performance. Angelfire Labs provides these features on a <strong>commercially reasonable, best-efforts basis</strong> and does not guarantee uninterrupted availability.</p>
+
+    <h3>6.3 No Refund for Temporary Unavailability</h3>
+    <p>Temporary unavailability of network-dependent premium features — including scheduled maintenance, unplanned outages, or third-party service disruptions — does not entitle you to a refund, credit, or reduction of your subscription fee, provided that Angelfire Labs uses commercially reasonable efforts to restore the affected service in a timely manner.</p>
+
+    <h3>6.4 Permanent Discontinuation</h3>
+    <p>If Angelfire Labs permanently discontinues a premium feature (other than through its replacement with a substantially equivalent feature), we will provide reasonable advance notice and will cease billing for the affected subscription tier as of the discontinuation date. Any unused portion of a prepaid subscription period will not be refunded, as all billing is managed by Apple.</p>
+
+    <h3>6.5 Third-Party Services</h3>
+    <p>Our Apps rely on third-party services including Apple's App Store and payment infrastructure, Vercel (hosting), and AI and text-to-speech providers. These third parties are independent of Angelfire Labs, and their terms of service and privacy policies govern their respective services. We are not responsible for the practices or performance of any third-party service provider.</p>
+  </section>
+
+  <!-- 7. Intellectual Property -->
+  <section>
+    <h2>7. Intellectual Property</h2>
+    <p>All content, code, artwork, sound effects, music, user interface designs, trademarks, trade names, service marks, logos, and other elements of our Apps are the exclusive property of Angelfire Labs LLC or our licensors, and are protected by United States and international intellectual property laws.</p>
+    <p>Nothing in this Agreement transfers any ownership of intellectual property rights to you. Your license to use the Apps does not include any right to use Angelfire Labs' trademarks, logos, or brand assets for any purpose without our prior written consent.</p>
+    <p>AI-generated text responses produced by the AI Advisor are delivered to you for personal use within the App. You may not reproduce, distribute, or commercialize AI Advisor output.</p>
+    <!-- POINT 5: Developer solely responsible for IP infringement claims; Apple has no obligation -->
+    <p>In the event that any third party asserts a claim that any Angelfire Labs App or your use thereof infringes that third party's intellectual property rights, Angelfire Labs — not Apple — will be solely responsible for the investigation, defense, settlement, and discharge of any such intellectual property infringement claim. Apple has no obligation whatsoever to participate in or contribute to the defense or resolution of any such claim.</p>
+  </section>
+
+  <!-- 8. User Conduct -->
+  <section>
+    <h2>8. User Conduct</h2>
+    <p>You agree not to use our Apps to:</p>
+    <ul>
+      <li>Violate any applicable local, state, national, or international law or regulation;</li>
+      <li>Attempt to probe, scan, or test the vulnerability of our systems or circumvent any security or authentication measures;</li>
+      <li>Use automated tools, bots, scripts, or other means to interact with the App in a manner not intended by Angelfire Labs;</li>
+      <li>Attempt to gain unauthorized access to our backend systems, APIs, or any related infrastructure;</li>
+      <li>Interfere with or disrupt the integrity or performance of our Apps or related services;</li>
+      <li>Harvest, collect, or store data about other users or the App's operations beyond what is provided to you through normal use.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Maintenance and Support — NEW (Point 2) -->
+  <section>
+    <h2>9. Maintenance and Support</h2>
+    <p>Angelfire Labs is solely responsible for providing any maintenance and support services with respect to our Apps, whether required under applicable law or as otherwise offered by Angelfire Labs at its discretion. You acknowledge and agree that <strong>Apple has no obligation whatsoever to furnish any maintenance or support services</strong> with respect to any Angelfire Labs App.</p>
+    <p>Any questions, complaints, or claims relating to an Angelfire Labs App should be directed to Angelfire Labs using the contact information provided in Section 20 of this Agreement, and not to Apple.</p>
+  </section>
+
+  <!-- 10. Product Claims and Responsibility — NEW (Point 4) -->
+  <section>
+    <h2>10. Product Claims and Responsibility</h2>
+    <p>As between Angelfire Labs and Apple, Angelfire Labs — not Apple — is solely responsible for addressing any claims by you or any third party relating to any Angelfire Labs App or your possession and/or use of any Angelfire Labs App. This includes, but is not limited to:</p>
+    <ul>
+      <li><strong>Product liability claims</strong> arising from the use or malfunction of any App;</li>
+      <li><strong>Consumer protection or consumer privacy claims</strong>, including any claims under applicable consumer protection laws;</li>
+      <li><strong>Claims that an App fails to conform to any applicable legal or regulatory requirement;</strong> and</li>
+      <li><strong>Claims arising under consumer protection, privacy, or similar legislation</strong> in your jurisdiction.</li>
+    </ul>
+    <p>Apple has no responsibility for investigating, defending, settling, or discharging any such claims. All such claims must be directed to Angelfire Labs using the contact information in Section 20.</p>
+  </section>
+
+  <!-- 11. Export Compliance — NEW (Point 6) -->
+  <section>
+    <h2>11. Export Compliance</h2>
+    <p>Our Apps may be subject to U.S. export control laws and regulations. By downloading, installing, or using any Angelfire Labs App, you represent and warrant that:</p>
+    <ul>
+      <li>You are not located in a country that is subject to a U.S. Government embargo, or that has been designated by the U.S. Government as a "terrorist supporting" country; and</li>
+      <li>You are not listed on any U.S. Government list of prohibited or restricted parties, including the Treasury Department's list of Specially Designated Nationals or the Department of Commerce's Denied Persons List or Entity List.</li>
+    </ul>
+    <p>You agree to comply with all applicable U.S. and international export laws and regulations in connection with your use of our Apps. You may not use or transfer our Apps in violation of any such laws or regulations.</p>
+  </section>
+
+  <!-- 12. Disclaimer of Warranties (was Section 9) -->
+  <section>
+    <h2>12. Disclaimer of Warranties</h2>
+    <div class="caps-block">
+      OUR APPS AND ALL RELATED SERVICES, INCLUDING THE AI ADVISOR AND WIN CHANCE FEATURES, ARE PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ANGELFIRE LABS EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+      <br><br>
+
+      ANGELFIRE LABS DOES NOT WARRANT THAT: (A) OUR APPS WILL FUNCTION WITHOUT INTERRUPTION OR BE ERROR-FREE; (B) ANY DEFECTS OR ERRORS WILL BE CORRECTED; (C) OUR APPS ARE FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS; OR (D) THE RESULTS OF USING OUR APPS, INCLUDING AI ADVISOR SUGGESTIONS, WILL MEET YOUR EXPECTATIONS.
+
+      <br><br>
+
+      SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OF IMPLIED WARRANTIES, SO THE ABOVE EXCLUSIONS MAY NOT APPLY TO YOU IN FULL.
+    </div>
+
+    <!-- POINT 3: Apple-specific warranty remedy clause -->
+    <p style="margin-top: 18px;">In the event that any Angelfire Labs App fails to conform to any applicable warranty, you may notify Apple, and Apple will refund the purchase price (if any) for the affected App to you. To the maximum extent permitted by applicable law, <strong>Apple will have no other warranty obligation whatsoever with respect to any Angelfire Labs App</strong>, and any other claims, losses, liabilities, damages, costs, or expenses attributable to any failure to conform to any warranty will be the sole responsibility of Angelfire Labs, subject to the limitations set forth in Section 13.</p>
+  </section>
+
+  <!-- 13. Limitation of Liability (was Section 10) -->
+  <section>
+    <h2>13. Limitation of Liability</h2>
+    <div class="caps-block">
+      TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL ANGELFIRE LABS, ITS MEMBERS, OFFICERS, EMPLOYEES, AGENTS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, GOODWILL, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR IN CONNECTION WITH: (A) YOUR USE OF OR INABILITY TO USE OUR APPS; (B) ANY RELIANCE ON THE AI ADVISOR'S SUGGESTIONS, WHETHER IN THE APP OR IN ANY REAL-WORLD CONTEXT; (C) ANY INTERRUPTION OR CESSATION OF TRANSMISSION TO OR FROM OUR SERVICES; OR (D) ANY BUGS, VIRUSES, OR OTHER HARMFUL CODE TRANSMITTED THROUGH OUR APPS BY THIRD PARTIES.
+
+      <br><br>
+
+      IN NO EVENT SHALL ANGELFIRE LABS' TOTAL LIABILITY TO YOU FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THIS AGREEMENT OR YOUR USE OF OUR APPS EXCEED THE GREATER OF: (I) THE TOTAL AMOUNT YOU PAID TO ANGELFIRE LABS (VIA APPLE) IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM; OR (II) FIFTY U.S. DOLLARS ($50.00).
+
+      <br><br>
+
+      THE LIMITATIONS IN THIS SECTION APPLY WHETHER THE LIABILITY IS BASED ON WARRANTY, CONTRACT, TORT, STATUTE, OR ANY OTHER LEGAL THEORY, AND WHETHER OR NOT ANGELFIRE LABS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. SOME JURISDICTIONS DO NOT ALLOW THE LIMITATION OF CERTAIN DAMAGES, SO SOME OR ALL OF THE ABOVE LIMITATIONS MAY NOT APPLY TO YOU.
+    </div>
+  </section>
+
+  <!-- 14. Indemnification (was Section 11) -->
+  <section>
+    <h2>14. Indemnification</h2>
+    <p>You agree to indemnify, defend, and hold harmless Angelfire Labs LLC and its members, officers, employees, and agents from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to: (a) your use of our Apps in violation of this Agreement; (b) your violation of any applicable law or regulation; or (c) your infringement of any third-party right.</p>
+  </section>
+
+  <!-- 15. Termination (was Section 12) -->
+  <section>
+    <h2>15. Termination</h2>
+    <p>This Agreement is effective until terminated. Your rights under this Agreement terminate automatically and without notice if you fail to comply with any of its terms. Upon termination, you must cease all use of the applicable App and delete it from your device.</p>
+    <p>Angelfire Labs may also terminate or suspend access to any App at any time, with or without cause, and with or without notice. Sections 7 (Intellectual Property), 12 (Disclaimer of Warranties), 13 (Limitation of Liability), 14 (Indemnification), 16 (Governing Law), and 17 (Dispute Resolution) survive any termination of this Agreement.</p>
+  </section>
+
+  <!-- 16. Governing Law (was Section 13) -->
+  <section>
+    <h2>16. Governing Law</h2>
+    <p>This Agreement is governed by and construed in accordance with the laws of the United States and the state in which Angelfire Labs LLC is domiciled, without regard to its conflict of law principles. You agree to submit to the personal and exclusive jurisdiction of the courts located within that jurisdiction for the resolution of any dispute arising from this Agreement.</p>
+    <p>Nothing in this Agreement limits any consumer protection rights you may have under the laws of your country of residence that cannot be waived by contract.</p>
+  </section>
+
+  <!-- 17. Dispute Resolution (was Section 14) -->
+  <section>
+    <h2>17. Dispute Resolution</h2>
+    <p>Before filing any formal legal claim, you agree to contact Angelfire Labs and attempt to resolve the dispute informally by sending a written description of the claim to our contact address below. We will attempt to resolve the issue within 30 days of receipt. If the dispute is not resolved within that period, either party may pursue formal legal remedies.</p>
+    <p>For users in the European Union, the European Commission provides an online dispute resolution platform available at <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ec.europa.eu/consumers/odr</a>.</p>
+  </section>
+
+  <!-- 18. Changes to this Agreement (was Section 15) -->
+  <section>
+    <h2>18. Changes to This Agreement</h2>
+    <p>We reserve the right to modify this Agreement at any time. When we make material changes, we will update the "Last Updated" date at the top of this page and may provide additional notice through in-app notification or other means. Your continued use of our Apps after changes take effect constitutes your acceptance of the revised Agreement.</p>
+    <p>If you do not agree to the revised Agreement, you must stop using our Apps and cancel any active subscriptions prior to the effective date of the changes.</p>
+  </section>
+
+  <!-- 19. General Provisions (was Section 16) -->
+  <section>
+    <h2>19. General Provisions</h2>
+
+    <h3>19.1 Entire Agreement</h3>
+    <p>This Agreement, together with our Privacy Policy and any terms presented at the point of purchase, constitutes the entire agreement between you and Angelfire Labs regarding your use of our Apps and supersedes all prior agreements, representations, and understandings relating to the same subject matter.</p>
+
+    <h3>19.2 Severability</h3>
+    <p>If any provision of this Agreement is found to be unenforceable or invalid, that provision will be limited or eliminated to the minimum extent necessary, and the remaining provisions will remain in full force and effect.</p>
+
+    <h3>19.3 Waiver</h3>
+    <p>Our failure to enforce any right or provision of this Agreement will not be considered a waiver of those rights. A waiver of any term is effective only if made in writing and signed by an authorized representative of Angelfire Labs.</p>
+
+    <h3>19.4 Assignment</h3>
+    <p>You may not assign or transfer this Agreement or any rights or obligations under it without our prior written consent. Angelfire Labs may freely assign this Agreement in connection with a merger, acquisition, corporate reorganization, or sale of all or substantially all of its assets.</p>
+
+    <h3>19.5 Apple as Third-Party Beneficiary</h3>
+    <p>You acknowledge and agree that Apple Inc. is a third-party beneficiary of this Agreement, and that Apple has the right (and is deemed to have accepted the right) to enforce this Agreement against you as a third-party beneficiary.</p>
+  </section>
+
+  <!-- 20. Contact Us (was Section 17) -->
+  <section>
+    <h2>20. Contact Us</h2>
+    <p>If you have questions about this Agreement or need to reach us regarding a dispute, subscription issue, maintenance and support matter, product claim, or any other matter, please contact us:</p>
+    <div class="contact-box">
+      <h3>Angelfire Labs LLC</h3>
+      <p>General inquiries and legal notices:</p>
+      <p><strong>Email:</strong> <a href="mailto:legal@angelfirelabs.com">legal@angelfirelabs.com</a></p>
+      <p style="margin-top: 12px; font-size: 13px; color: #aaa;">We aim to respond to all formal inquiries within 30 days.</p>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <p>&copy; 2026 Angelfire Labs LLC. All rights reserved.</p>
+    <p style="margin-top:6px;">This Agreement governs all applications published by Angelfire Labs LLC.</p>
+  </footer>
+
+</div>
+</body>
+</html>
