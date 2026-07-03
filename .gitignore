@@ -58,5 +58,6 @@ Desktop.ini
 .env.*
 secrets.properties
 
-# ── Misc ─────────────────────────────────────────────────────────────────────
-PREMIUM_GATING_PLAN.md
+# ── Markdown docs (working notes, specs) — keep only the README ──────────────
+*.md
+!README.md
