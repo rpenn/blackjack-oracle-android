@@ -34,7 +34,7 @@ import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.viewmodel.GameViewModel
 
 @Composable
-fun AppRoot(vm: GameViewModel = viewModel()) {
+fun AppRoot(vm: GameViewModel = viewModel(), demoActive: Boolean = false) {
     Box(Modifier.fillMaxSize()) {
         var showSettings by remember { mutableStateOf(false) }
 
@@ -61,7 +61,9 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
             }
         }
 
-        if (BuildConfig.DEBUG) {
+        // The debug entitlement toggle is hidden during demo capture so it never
+        // appears in store screenshots/video.
+        if (BuildConfig.DEBUG && !demoActive) {
             DebugPremiumToggle(Modifier.align(Alignment.TopStart))
         }
 

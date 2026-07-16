@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackjackoracle.BlackjackApp
 import com.blackjackoracle.caption.CaptionEngine
+import com.blackjackoracle.engine.Shoe
 import com.blackjackoracle.game.BlackjackTable
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
@@ -45,7 +46,7 @@ data class AdvisorUiState(
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val table = BlackjackTable()
+    private var table = BlackjackTable()
     private val sound = SoundManager(app.applicationContext)
     private val advisor = AdvisorService()
     private val tts = TtsService(app.applicationContext)
@@ -94,6 +95,23 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var state: GameState by mutableStateOf(table.state)
         private set
 
+    // ---------- Demo capture seams (null/no-op in release; see DemoSeams.kt) ----------
+
+    /** When non-null, a debug-only driver is puppeteering the table for store capture. */
+    var demo: DemoSeams? = null
+        private set
+
+    /** Freeze the round flow at this phase so a clean frame can be captured. */
+    var demoHoldAt: GamePhase? = null
+        private set
+
+    /** Single wiring point for the debug-only demo driver. */
+    fun enableDemo(seams: DemoSeams, holdAt: GamePhase?) {
+        demo = seams
+        demoHoldAt = holdAt
+        tts.demoOffline = true
+    }
+
     var advisorState: AdvisorUiState by mutableStateOf(AdvisorUiState())
         private set
 
@@ -111,6 +129,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startGame() {
         cancelGame()
+        // Demo capture: swap in a stacked shoe so the scripted hands deal exactly.
+        demo?.let { table = BlackjackTable(Shoe(stackedCards = it.shoeCards())) }
         table.startGame()
         sync()
     }
@@ -294,9 +314,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             setState(AdvisorUiState(isLoading = true, statusLabel = "Thinking..."))
             try {
                 val token = authToken
-                val text = getCached(key) ?: withContext(Dispatchers.IO) {
-                    advisor.advice(AdvisorContext.from(snapshot, available), token)
-                }.also { putCached(key, it) }
+                val text = demo?.advice?.invoke(snapshot, available)
+                    ?: getCached(key)
+                    ?: withContext(Dispatchers.IO) {
+                        advisor.advice(AdvisorContext.from(snapshot, available), token)
+                    }.also { putCached(key, it) }
                 present(text, token, setState)
             } catch (e: CancellationException) {
                 // Don't swallow cancellation — let the job complete cleanly.
@@ -444,6 +466,9 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             results.any { it.net > 0 } -> sound.playWin()
             results.any { it.net < 0 } -> sound.playLose()
         }
+        // Demo capture: hold on the settled table (outcome badges on the
+        // cards, no overlay) so a clean frame can be captured.
+        if (demoHoldAt == GamePhase.SETTLEMENT) return
         // Hold on the settled table so the player can see the outcome badges
         // before the overlay covers them.
         delay(Timing.ROUND_END_DELAY_MS)

@@ -6,6 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.blackjackoracle.demo.DemoEntry
 import com.blackjackoracle.ui.AppRoot
 import com.blackjackoracle.ui.LocalEntitlements
 import com.blackjackoracle.ui.LocalPaywall
@@ -21,6 +25,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as BlackjackApp
+        // Store-capture demo: opt-in via intent extras, debug builds only. The
+        // BuildConfig.DEBUG gate lets R8 strip this whole branch (including the
+        // extra names) from release, where DemoEntry is a no-op twin anyway.
+        val demoRequested = BuildConfig.DEBUG &&
+            intent?.getBooleanExtra("demo_mode", false) == true
+        val demoScene = if (demoRequested) intent?.getStringExtra("demo_scene") else null
+        if (demoRequested) {
+            // Clean capture: hide the navigation bar / large-screen taskbar (keep
+            // the status bar) so nav icons never appear in store screenshots.
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            controller.hide(WindowInsetsCompat.Type.navigationBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         setContent {
             BlackjackOracleTheme {
                 CompositionLocalProvider(
@@ -28,7 +46,12 @@ class MainActivity : ComponentActivity() {
                     LocalPurchases provides app.purchases,
                     LocalPaywall provides app.paywall,
                 ) {
-                    AppRoot(vm)
+                    LaunchedEffect(demoRequested) {
+                        if (demoRequested) {
+                            DemoEntry.start(vm, app.entitlements, demoScene)
+                        }
+                    }
+                    AppRoot(vm, demoActive = demoRequested)
                 }
             }
         }

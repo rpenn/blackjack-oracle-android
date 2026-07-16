@@ -33,6 +33,16 @@ class TtsService(
     @Volatile private var currentTempFile: File? = null
     @Volatile private var paused = false
 
+    /**
+     * Demo-capture only (debug). When set, [speak] skips the network round-trip
+     * and just drives the speaking state for a realistic duration, simulating the
+     * playhead so captions track — no network, no audio. Ideal for muted Play
+     * Store capture. Always false in release (only the debug demo driver sets it).
+     */
+    var demoOffline: Boolean = false
+    @Volatile private var demoSpeechStartMs = 0L
+    @Volatile private var demoSpeechDurationMs = 0L
+
     /// True while audio is actively playing (false while paused or idle). Read by
     /// the ViewModel to decide whether a caption "pause" targets the MediaPlayer
     /// (spoken mode) or the reading clock (caption-only mode).
@@ -43,10 +53,16 @@ class TtsService(
     /// Playhead for CaptionEngine. Guarded against the IllegalState that
     /// currentPosition/duration throw once the player has been torn down.
     /// duration is -1 until prepare() completes; the engine treats <=0 as "wait".
-    fun currentPositionMs(): Long =
-        synchronized(lock) { runCatching { player?.currentPosition?.toLong() }.getOrNull() ?: 0L }
-    fun durationMs(): Long =
-        synchronized(lock) { runCatching { player?.duration?.toLong() }.getOrNull() ?: 0L }
+    fun currentPositionMs(): Long {
+        val demoDur = demoSpeechDurationMs
+        if (demoDur > 0) return (System.currentTimeMillis() - demoSpeechStartMs).coerceIn(0L, demoDur)
+        return synchronized(lock) { runCatching { player?.currentPosition?.toLong() }.getOrNull() ?: 0L }
+    }
+    fun durationMs(): Long {
+        val demoDur = demoSpeechDurationMs
+        if (demoDur > 0) return demoDur
+        return synchronized(lock) { runCatching { player?.duration?.toLong() }.getOrNull() ?: 0L }
+    }
 
     fun pause() = synchronized(lock) {
         player?.takeIf { runCatching { it.isPlaying }.getOrDefault(false) }?.let { it.pause(); paused = true }
@@ -60,6 +76,10 @@ class TtsService(
     /// actually begins — after the network fetch and temp-file write — so the
     /// UI can show a "speaking" state that matches real sound, not the fetch.
     suspend fun speak(text: String, authToken: String? = null, onStart: () -> Unit = {}) {
+        if (demoOffline) {
+            speakOffline(text, onStart)
+            return
+        }
         stop()
         val audio = withContext(Dispatchers.IO) { fetchAudio(text, authToken) }
         val file = withContext(Dispatchers.IO) { writeTempFile(audio) }
@@ -104,7 +124,26 @@ class TtsService(
     private fun isPlaying(mp: MediaPlayer): Boolean =
         try { mp.isPlaying } catch (_: Throwable) { false }
 
+    /**
+     * Offline stand-in for [speak]: paces the speaking UI (and a simulated
+     * playhead for the caption engine) without audio or network.
+     */
+    private suspend fun speakOffline(text: String, onStart: () -> Unit) {
+        stop()
+        // Roughly track real speech pacing so the bars run a believable length.
+        val ms = (text.length * 55L).coerceIn(4_000L, 9_000L)
+        demoSpeechStartMs = System.currentTimeMillis()
+        demoSpeechDurationMs = ms
+        onStart()
+        try {
+            delay(ms)
+        } finally {
+            demoSpeechDurationMs = 0L
+        }
+    }
+
     fun stop() {
+        demoSpeechDurationMs = 0L
         val active: MediaPlayer?
         val activeFile: File?
         synchronized(lock) {
