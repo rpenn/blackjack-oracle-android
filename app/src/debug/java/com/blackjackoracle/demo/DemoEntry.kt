@@ -74,10 +74,11 @@ object DemoEntry {
             holdAt = if (key == "blackjack21" || key == "doublewin") GamePhase.SETTLEMENT else null,
         )
 
-        // Captions on for the beats where Oliver's advice should be readable on
-        // screen; off where the speaking equalizer is the star (Hoot button).
+        // Captions on for the beats where Oliver's words should be readable on
+        // screen (the advice and the round-end recap); off for the settled-table
+        // beats where the cards are the star.
         vm.updateCaptionOnly(false)
-        vm.updateCaptionsEnabled(key == "oliver" || key == "full")
+        vm.updateCaptionsEnabled(key == "oliver" || key == "roundend" || key == "full")
 
         scope.launch {
             when (key) {
@@ -159,8 +160,6 @@ object DemoEntry {
         delay(600L) // let the request register before polling it
         while (vm.advisorState.isLoading || vm.advisorState.isSpeaking) delay(100L)
         delay(500L)
-        // Captions off for the finale so the Hoot button's equalizer shows.
-        vm.updateCaptionsEnabled(false)
         vm.handlePlayerAction(PlayerAction.Double)
         loopHoot(vm)
     }
@@ -242,8 +241,10 @@ object DemoEntry {
         val hand = state.human.hands.firstOrNull()
         val total = hand?.let { HandEvaluator.evaluate(it.cards).displayString() } ?: ""
         return if (hand?.isDoubled == true) {
-            "That is exactly how you play it. You doubled your hard nine into $total, " +
-                "the dealer busted, and the double paid you $$won. Well played."
+            "That double is why nine against a three matters. The dealer's three is a " +
+                "bust card — they had to keep drawing, and their twelve broke on the ten. " +
+                "You pressed your edge, pulled a ten for $total, and turned a small hand " +
+                "into a $$won swing. Play it by the book and the book pays you back."
         } else {
             "A natural blackjack — the best hand in the game, and it pays three to two. " +
                 "That's $$won on a single hand. Keep them coming."
