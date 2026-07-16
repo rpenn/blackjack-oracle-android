@@ -15,6 +15,8 @@ import com.blackjackoracle.model.PlayerAction
 class DemoSeams(
     /** Stacked shoe contents: the scripted hands' cards on top, filler behind. */
     val shoeCards: () -> List<Card>,
+    /** Starting bankroll (deep enough for the scripted doubled bets). */
+    val startingChips: Int,
     /**
      * Offline stand-in for the advisor endpoint. Called instead of the HTTP
      * advisor whenever demo mode is active, so capture runs deterministic and

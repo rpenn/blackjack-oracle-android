@@ -130,7 +130,12 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun startGame() {
         cancelGame()
         // Demo capture: swap in a stacked shoe so the scripted hands deal exactly.
-        demo?.let { table = BlackjackTable(Shoe(stackedCards = it.shoeCards())) }
+        demo?.let {
+            table = BlackjackTable(
+                shoe = Shoe(stackedCards = it.shoeCards()),
+                startingChips = it.startingChips,
+            )
+        }
         table.startGame()
         sync()
     }

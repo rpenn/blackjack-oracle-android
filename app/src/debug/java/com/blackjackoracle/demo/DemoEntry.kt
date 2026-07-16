@@ -40,7 +40,8 @@ import kotlinx.coroutines.launch
  */
 object DemoEntry {
 
-    private const val BET = 100
+    private const val BET = 200
+    private const val STARTING_CHIPS = 500
 
     private var started = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -66,6 +67,7 @@ object DemoEntry {
         vm.enableDemo(
             DemoSeams(
                 shoeCards = { hands + filler() },
+                startingChips = STARTING_CHIPS,
                 advice = ::advice,
             ),
             // The two "settled table" beats freeze before the round-end overlay.

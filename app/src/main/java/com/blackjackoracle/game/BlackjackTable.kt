@@ -22,6 +22,7 @@ class BlackjackTable(
         deckCount = GameConstants.DECK_COUNT,
         reshuffleAtCardsRemaining = GameConstants.RESHUFFLE_AT_CARDS_REMAINING,
     ),
+    private val startingChips: Int = GameConstants.STARTING_CHIPS,
 ) {
     var state: GameState = GameState()
         private set
@@ -38,7 +39,7 @@ class BlackjackTable(
         // First-time bet starts empty; subsequent rounds restore `lastBet` in
         // `startNextHand`. Mirrors iOS, where `lastHumanBet = 0` on `startGame`.
         state = GameState(
-            human = Player(pendingBet = 0),
+            human = Player(pendingBet = 0, chips = startingChips),
             phase = GamePhase.BETTING,
             currentRound = 1,
         )
