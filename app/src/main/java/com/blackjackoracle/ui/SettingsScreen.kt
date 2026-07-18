@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
@@ -60,6 +61,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.blackjackoracle.BuildConfig
 import com.blackjackoracle.data.CaptionPreferences
+import com.blackjackoracle.service.ReviewPrompter
 import com.blackjackoracle.ui.theme.BjColors
 import kotlinx.coroutines.launch
 
@@ -255,6 +257,13 @@ fun SettingsScreen(onDismiss: () -> Unit) {
                             icon = Icons.Filled.MailOutline,
                             title = "Contact Support",
                             onClick = { contactSupport(context) },
+                        )
+                        // Play policy: buttons must deep-link to the listing,
+                        // never trigger the in-app review flow.
+                        SettingsRow(
+                            icon = Icons.Filled.Star,
+                            title = "Rate Blackjack Oracle",
+                            onClick = { ReviewPrompter.openStoreListing(context) },
                         )
                     }
 

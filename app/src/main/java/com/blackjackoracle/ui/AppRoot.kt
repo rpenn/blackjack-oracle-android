@@ -15,28 +15,80 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.blackjackoracle.BuildConfig
 import com.blackjackoracle.model.GamePhase
+import com.blackjackoracle.service.ReviewPrompter
 import com.blackjackoracle.viewmodel.GameViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 
 @Composable
 fun AppRoot(vm: GameViewModel = viewModel()) {
     Box(Modifier.fillMaxSize()) {
         var showSettings by remember { mutableStateOf(false) }
+        val context = LocalContext.current
+        val reviewPaywall = LocalPaywall.current
+        var showSetupReviewLink by remember { mutableStateOf(false) }
+
+        // Mid-session milestone (crossed $1,000 / 4-win streak): spend the
+        // once-per-version in-app review at the settlement high point. A
+        // snapshotFlow (not a keyed LaunchedEffect) so consuming the flag
+        // doesn't restart the effect and cancel the delayed launch. Mirrors
+        // iOS GameTableView.onChange(vm.pendingReviewMilestone).
+        LaunchedEffect(vm) {
+            snapshotFlow { vm.pendingReviewMilestone }
+                .filter { it }
+                .collect {
+                    if (!vm.consumePendingReviewMilestone()) return@collect
+                    if (!ReviewPrompter.shouldRequestReview(context, isMilestone = true)) return@collect
+                    ReviewPrompter.markPrompted(context)
+                    // Let the settlement land first: the sheet appears with
+                    // the winning chips on screen.
+                    delay(2_000)
+                    if (!reviewPaywall.isPresented.value) {
+                        ReviewPrompter.launchInAppReview(context)
+                    }
+                }
+        }
+
+        // Blackjack has no natural "you win" screen — a session only ends by
+        // busting to zero (Game Over) or by quitting while ahead, which lands
+        // back on Setup with no dedicated summary. So returning to Setup is
+        // where the session-end high point gets checked. Mirrors iOS
+        // SetupView.handleReviewMoment.
+        LaunchedEffect(vm.state.phase) {
+            if (vm.state.phase != GamePhase.SETUP) {
+                showSetupReviewLink = false
+                return@LaunchedEffect
+            }
+            if (!vm.consumeJustEndedSessionAhead()) return@LaunchedEffect
+            if (ReviewPrompter.shouldRequestReview(context)) {
+                ReviewPrompter.markPrompted(context)
+                delay(1_000)
+                if (!reviewPaywall.isPresented.value && !showSettings) {
+                    ReviewPrompter.launchInAppReview(context)
+                }
+            } else if (ReviewPrompter.shouldOfferWrittenReview(context)) {
+                showSetupReviewLink = true
+            }
+        }
 
         AnimatedContent(
             targetState = vm.state.phase,
@@ -49,6 +101,7 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
                 GamePhase.SETUP -> SetupScreen(
                     onStart = vm::startGame,
                     onSettings = { showSettings = true },
+                    showReviewLink = showSetupReviewLink,
                 )
                 GamePhase.GAME_OVER -> GameOverScreen(vm)
                 GamePhase.BETTING,

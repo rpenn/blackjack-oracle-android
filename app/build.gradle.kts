@@ -11,7 +11,7 @@ android {
         applicationId = "com.blackjackoracle.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
+        versionCode = 6
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "ADVISOR_BASE_URL", "\"https://oracle-mobile-api.vercel.app\"")
@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    implementation(libs.play.review)
+    implementation(libs.play.review.ktx)
     implementation(libs.revenuecat.purchases)
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.datastore.preferences)

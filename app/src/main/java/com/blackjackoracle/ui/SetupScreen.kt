@@ -35,20 +35,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjackoracle.R
+import com.blackjackoracle.service.ReviewPrompter
 import com.blackjackoracle.ui.components.GoldButton
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.ui.theme.BlackjackOracleTheme
 
 @Composable
-fun SetupScreen(onStart: () -> Unit, onSettings: () -> Unit = {}) {
+fun SetupScreen(
+    onStart: () -> Unit,
+    onSettings: () -> Unit = {},
+    showReviewLink: Boolean = false,
+) {
     var showHelp by remember { mutableStateOf(false) }
     val backdrop = remember { Brush.verticalGradient(listOf(BjColors.BgTop, BjColors.BgBottom)) }
+    val context = LocalContext.current
 
     Box(
         Modifier
@@ -104,6 +111,21 @@ fun SetupScreen(onStart: () -> Unit, onSettings: () -> Unit = {}) {
                     .clip(CircleShape),
             )
             Spacer(Modifier.height(50.dp))
+            if (showReviewLink) {
+                // Shown once the in-app review is spent for this version and a
+                // session just ended ahead. Links to the Play listing — there
+                // is no write-review composer deep link on Android.
+                Text(
+                    "Loving Blackjack Oracle? Leave a review",
+                    color = BjColors.Accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable { ReviewPrompter.openStoreListing(context) }
+                        .padding(8.dp),
+                )
+                Spacer(Modifier.height(12.dp))
+            }
             GoldButton("TAKE A SEAT", Modifier.fillMaxWidth(), onClick = onStart)
 
             val isPremium by LocalEntitlements.current.isPremium.collectAsState()

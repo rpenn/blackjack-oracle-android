@@ -12,8 +12,10 @@ import com.blackjackoracle.game.BlackjackTable
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.model.PlayerAction
+import com.blackjackoracle.model.GameConstants
 import com.blackjackoracle.service.AdvisorContext
 import com.blackjackoracle.service.AdvisorService
+import com.blackjackoracle.service.ReviewPrompter
 import com.blackjackoracle.service.SoundManager
 import com.blackjackoracle.service.TtsService
 import kotlinx.coroutines.CancellationException
@@ -107,18 +109,63 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     /// config changes. Reset only when the process dies.
     var lossNudgeShown: Boolean = false
 
+    /// Blackjack has no "you win" screen (GAME_OVER only appears on busting to
+    /// zero), so quitting ahead is the one genuine session-end high point to
+    /// hang a review ask on. AppRoot consumes and clears this via
+    /// `consumeJustEndedSessionAhead()` when the Setup screen comes back.
+    private var justEndedSessionAhead = false
+
+    /// Mid-session review milestones: the bankroll crossing $1,000, or winning
+    /// 4 rounds in a row — peaks worth a review ask without waiting for the
+    /// session to end. At most one per session; AppRoot consumes it via
+    /// `consumePendingReviewMilestone()`. Compose state so AppRoot can observe
+    /// the flip.
+    var pendingReviewMilestone: Boolean by mutableStateOf(false)
+        private set
+
+    private var winStreak = 0
+    private var milestoneFired = false
+
     // Setup / round lifecycle
 
     fun startGame() {
         cancelGame()
         table.startGame()
+        winStreak = 0
+        milestoneFired = false
+        pendingReviewMilestone = false
         sync()
     }
 
     fun returnToSetup() {
+        // Capture before the table resets: did this session actually play
+        // hands, and did it end up chips? Quitting ahead is Blackjack's "win
+        // screen" — there is no other one. Mirrors iOS returnToSetup().
+        val hadPlayed = state.handsPlayed > 0
+        val endedAhead = state.human.chips > GameConstants.STARTING_CHIPS
         stopAllJobsAndAudio()
         table.returnToSetup()
         sync()
+        if (hadPlayed) {
+            ReviewPrompter.recordSessionCompleted(getApplication())
+        }
+        justEndedSessionAhead = hadPlayed && endedAhead
+        pendingReviewMilestone = false
+    }
+
+    /// One-shot read: returns whether the session that just ended left the
+    /// player ahead, then clears the flag.
+    fun consumeJustEndedSessionAhead(): Boolean {
+        val value = justEndedSessionAhead
+        justEndedSessionAhead = false
+        return value
+    }
+
+    /// One-shot read of the mid-session milestone flag.
+    fun consumePendingReviewMilestone(): Boolean {
+        val value = pendingReviewMilestone
+        pendingReviewMilestone = false
+        return value
     }
 
     /// Called by the host activity on STOP/background — kill any in-flight TTS
@@ -437,12 +484,23 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             sync()
         }
         delay(Timing.SETTLEMENT_MS)
+        val chipsBeforePayout = state.human.chips
         table.settleDealerTurn()
         sync()
         val results = state.roundResults
         when {
             results.any { it.net > 0 } -> sound.playWin()
             results.any { it.net < 0 } -> sound.playLose()
+        }
+
+        // Review milestones. A round counts as a win only if it netted chips;
+        // a push leaves the streak intact rather than breaking it.
+        val roundNet = results.sumOf { it.net }
+        if (roundNet > 0) winStreak++ else if (roundNet < 0) winStreak = 0
+        val crossedThousand = chipsBeforePayout < 1000 && state.human.chips >= 1000
+        if (!milestoneFired && (crossedThousand || winStreak >= 4)) {
+            milestoneFired = true
+            pendingReviewMilestone = true
         }
         // Hold on the settled table so the player can see the outcome badges
         // before the overlay covers them.
