@@ -71,6 +71,9 @@ data class GameState(
     val isDealAnimating: Boolean = false,
     val actionHistory: List<HandActionLog> = emptyList(),
     val handsPlayed: Int = 0,
+    /// True while the guided first hand plays. The scripted win must feed
+    /// neither the review-prompt cadence nor the "ended ahead" flag.
+    val isTutorial: Boolean = false,
 )
 
 object GameConstants {

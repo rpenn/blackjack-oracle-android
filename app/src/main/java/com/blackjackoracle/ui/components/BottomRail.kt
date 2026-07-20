@@ -57,8 +57,13 @@ import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.model.GameState
 import com.blackjackoracle.model.PlayerAction
 import com.blackjackoracle.model.WinChance
+import com.blackjackoracle.tutorial.TutorialStep
+import com.blackjackoracle.tutorial.TutorialTarget
+import com.blackjackoracle.tutorial.tutorialAnchor
+import com.blackjackoracle.tutorial.tutorialSwellModifier
 import com.blackjackoracle.ui.LocalEntitlements
 import com.blackjackoracle.ui.LocalPaywall
+import com.blackjackoracle.ui.LocalTutorial
 import com.blackjackoracle.ui.theme.BjColors
 import com.blackjackoracle.viewmodel.AdvisorUiState
 import com.blackjackoracle.viewmodel.GameViewModel
@@ -132,12 +137,19 @@ fun BottomRail(
         // ActionControls during DEALING / DEALER_TURN / SETTLEMENT / ROUND_END
         // shows every button in its disabled state (25% alpha container) —
         // that's the screen-wide "dim" the user sees at every transition.
+        // The bars and the buttons publish sibling anchors: the tutorial's
+        // action steps union the two rects so the Win Chance numbers stay lit
+        // while the user acts. Do not nest one anchor inside the other's
+        // wrapper — the iOS build silently lost the inner anchor that way.
+        val tutorial = LocalTutorial.current
         when (state.phase) {
             GamePhase.BETTING -> BettingControls(vm = vm, onChipFloat = onChipFloat)
             GamePhase.PLAYER_TURNS -> {
                 state.winChance?.let {
                     if (isPremium) {
-                        WinBars(it, vm.availableActions())
+                        Box(Modifier.tutorialAnchor(tutorial.anchors, TutorialTarget.WIN_BAR)) {
+                            WinBars(it, vm.availableActions())
+                        }
                     } else {
                         LockedWinBars(vm.availableActions()) { paywall.present("winchance_locked") }
                     }
@@ -245,12 +257,24 @@ private fun OliverPill(
     // The pill background is shared, but "Ask Oliver" and the CC chip are two
     // independent tap targets: the row's clickable asks Oliver, while the CC
     // chip's own clickable (nested, so it wins its region) toggles captions.
+    // During the tutorial the overlay owns this interaction: its tap catcher
+    // plays the canned line instead of the live (network) advisor, and swells
+    // draw the eye on ask steps.
+    val tutorial = LocalTutorial.current
+    val askStep = tutorial.step == TutorialStep.ASK_OLIVER_SPLIT ||
+        tutorial.step == TutorialStep.ASK_OLIVER_DOUBLE
     Row(
-        Modifier
+        tutorialSwellModifier(
+            isTarget = askStep,
+            step = tutorial.step,
+            delayMs = 950,
+            scale = 1.06f,
+        )
+            .tutorialAnchor(tutorial.anchors, TutorialTarget.ADVISOR)
             .clip(RoundedCornerShape(50))
             .border(1.dp, BjColors.Accent.copy(alpha = 0.45f), RoundedCornerShape(50))
             .background(Color.Black.copy(alpha = 0.30f))
-            .clickable(enabled = enabled && !isLoading) { onClick() }
+            .clickable(enabled = enabled && !isLoading && !tutorial.isActive) { onClick() }
             .padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = if (showCaptionChip) 4.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -424,25 +448,59 @@ private fun BettingControls(
 private fun ActionControls(vm: GameViewModel) {
     val state = vm.state
     val actions = remember(state) { vm.availableActions() }
+    // During the tutorial only the current step's scripted action is live;
+    // everything else stays visible but dimmed (permits() is always true
+    // outside the tutorial). The permitted button swells in lockstep with
+    // the coach bubble's instruction line.
+    val tutorial = LocalTutorial.current
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .tutorialAnchor(tutorial.anchors, TutorialTarget.ACTION_BAR),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ActionButton("HIT", BjColors.Success, PlayerAction.Hit in actions) {
+        ActionButton(
+            "HIT", BjColors.Success,
+            PlayerAction.Hit in actions && tutorial.permits(PlayerAction.Hit),
+        ) {
             vm.handlePlayerAction(PlayerAction.Hit)
         }
         if (PlayerAction.Split in actions) {
-            ActionButton("SPLIT", BjColors.SplitYellow, true) {
+            ActionButton(
+                "SPLIT", BjColors.SplitYellow,
+                tutorial.permits(PlayerAction.Split),
+                modifier = tutorialSwellModifier(
+                    isTarget = tutorial.isActive && tutorial.permits(PlayerAction.Split),
+                    step = tutorial.step,
+                    delayMs = 950,
+                ),
+            ) {
                 vm.handlePlayerAction(PlayerAction.Split)
             }
         }
         if (PlayerAction.Double in actions) {
-            ActionButton("DOUBLE", BjColors.InfoBlue, true) {
+            ActionButton(
+                "DOUBLE", BjColors.InfoBlue,
+                tutorial.permits(PlayerAction.Double),
+                modifier = tutorialSwellModifier(
+                    isTarget = tutorial.isActive && tutorial.permits(PlayerAction.Double),
+                    step = tutorial.step,
+                    delayMs = 950,
+                ),
+            ) {
                 vm.handlePlayerAction(PlayerAction.Double)
             }
         }
-        ActionButton("STAND", BjColors.Danger, PlayerAction.Stand in actions) {
+        ActionButton(
+            "STAND", BjColors.Danger,
+            PlayerAction.Stand in actions && tutorial.permits(PlayerAction.Stand),
+            modifier = tutorialSwellModifier(
+                isTarget = tutorial.isActive && tutorial.permits(PlayerAction.Stand),
+                step = tutorial.step,
+                delayMs = 950,
+            ),
+        ) {
             vm.handlePlayerAction(PlayerAction.Stand)
         }
     }
@@ -453,6 +511,7 @@ private fun ActionButton(
     text: String,
     color: Color,
     enabled: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Button(
@@ -460,7 +519,7 @@ private fun ActionButton(
         enabled = enabled,
         // 48dp height matches the Material 3 minimum touch-target spec; the
         // accessibility scanner flagged 44dp on the previous rev.
-        modifier = Modifier.size(width = 78.dp, height = 48.dp),
+        modifier = modifier.size(width = 78.dp, height = 48.dp),
         // Default Material3 contentPadding is horizontal=24dp which leaves only
         // ~30dp of text room inside a 78dp button — long labels (DOUBLE, STAND,
         // SPLIT) get clipped. Override so the full button width is usable.

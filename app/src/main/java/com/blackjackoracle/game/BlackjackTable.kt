@@ -16,6 +16,7 @@ import com.blackjackoracle.model.LastAction
 import com.blackjackoracle.model.Player
 import com.blackjackoracle.model.PlayerAction
 import com.blackjackoracle.model.RoundResult
+import com.blackjackoracle.tutorial.TutorialScript
 
 class BlackjackTable(
     private val shoe: Shoe = Shoe(
@@ -28,7 +29,7 @@ class BlackjackTable(
 
     private var lastBet: Int = GameConstants.MIN_BET
 
-    fun startGame() {
+    fun startGame(tutorial: Boolean = false) {
         // Always start a new game with a fresh shuffle. Carrying shoe state
         // across SetupScreen → startGame would quietly bias the win-chance
         // bars on the first few hands relative to a player's mental model of
@@ -41,7 +42,15 @@ class BlackjackTable(
             human = Player(pendingBet = 0),
             phase = GamePhase.BETTING,
             currentRound = 1,
+            isTutorial = tutorial,
         )
+        // The guided hand plays from a fixed script so the teaching beats
+        // always land: rig the shoe and stage the fixed bet — the ViewModel
+        // deals immediately, so the tutorial has no betting step.
+        if (tutorial) {
+            shoe.forceNext(TutorialScript.riggedCards)
+            updatePendingBet(TutorialScript.BET)
+        }
     }
 
     fun returnToSetup() {

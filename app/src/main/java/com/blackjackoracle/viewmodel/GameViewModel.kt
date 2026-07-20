@@ -96,6 +96,13 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var state: GameState by mutableStateOf(table.state)
         private set
 
+    /// Ticks exactly once per committed human action (hit/stand/double/split/
+    /// surrender). Dealer play doesn't route through `handlePlayerAction`, so
+    /// this never ticks spuriously — the tutorial step machine watches it to
+    /// advance on the action the coach asked for. Mirrors iOS humanActionCount.
+    var humanActionCount: Int by mutableStateOf(0)
+        private set
+
     var advisorState: AdvisorUiState by mutableStateOf(AdvisorUiState())
         private set
 
@@ -128,20 +135,25 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     // Setup / round lifecycle
 
-    fun startGame() {
+    fun startGame(tutorial: Boolean = false) {
         cancelGame()
-        table.startGame()
+        table.startGame(tutorial)
         winStreak = 0
         milestoneFired = false
         pendingReviewMilestone = false
         sync()
+        // The guided hand has no betting step: the shoe is already rigged and
+        // the bet staged by the table, so the table opens mid-deal.
+        if (tutorial) confirmBetsAndDeal()
     }
 
     fun returnToSetup() {
         // Capture before the table resets: did this session actually play
         // hands, and did it end up chips? Quitting ahead is Blackjack's "win
         // screen" — there is no other one. Mirrors iOS returnToSetup().
-        val hadPlayed = state.handsPlayed > 0
+        // The tutorial's scripted win is not a real session: it must feed
+        // neither the review-prompt cadence nor the "ended ahead" high point.
+        val hadPlayed = state.handsPlayed > 0 && !state.isTutorial
         val endedAhead = state.human.chips > GameConstants.STARTING_CHIPS
         stopAllJobsAndAudio()
         table.returnToSetup()
@@ -260,6 +272,10 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun handlePlayerAction(action: PlayerAction) {
+        // Only count actions the table will actually commit — handleAction
+        // ignores anything not currently available, and the tutorial's step
+        // machine must not advance on a rejected tap.
+        val committed = action in table.availableActions()
         // Committing an action makes the open Ask-Oliver advice stale: dismiss
         // the caption, stop any in-flight speech, and clear the ask cache so the
         // next Ask Oliver fetches fresh advice. Runs on every action, including
@@ -267,6 +283,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         resetInGameCaption()
         table.handleAction(action)
         sync()
+        if (committed) humanActionCount++
         when (action) {
             PlayerAction.Hit -> sound.playHit()
             PlayerAction.Stand, PlayerAction.Surrender -> sound.playStand()

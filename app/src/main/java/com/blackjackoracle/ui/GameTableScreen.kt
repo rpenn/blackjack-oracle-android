@@ -46,7 +46,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.snapshotFlow
 import com.blackjackoracle.model.GamePhase
+import com.blackjackoracle.tutorial.TutorialOverlay
 import com.blackjackoracle.ui.components.BottomRail
 import com.blackjackoracle.ui.components.ChipFloat
 import com.blackjackoracle.ui.components.ChipFloatLabel
@@ -64,8 +66,31 @@ private val ChipFloatLift = 30.dp
 @Composable
 fun GameTableScreen(vm: GameViewModel) {
     val state = vm.state
+    val tutorial = LocalTutorial.current
     var showHelp by remember { mutableStateOf(false) }
     var showQuit by remember { mutableStateOf(false) }
+
+    // Tutorial step machine, driven from one collector so ordering is
+    // deterministic: a committed human action advances the machine
+    // (humanActed) BEFORE the state-derived sync runs — an action that ends
+    // the hand must move the step first. Mirrors the iOS onChange ordering.
+    LaunchedEffect(vm, tutorial) {
+        var lastActionCount = vm.humanActionCount
+        snapshotFlow {
+            TutorialSyncKey(
+                actionCount = vm.humanActionCount,
+                phase = vm.state.phase,
+                activeHandIndex = vm.state.human.activeHandIndex,
+                isDealAnimating = vm.state.isDealAnimating,
+            )
+        }.collect { key ->
+            if (key.actionCount != lastActionCount) {
+                lastActionCount = key.actionCount
+                tutorial.humanActed()
+            }
+            tutorial.sync(vm)
+        }
+    }
     var floats by remember { mutableStateOf<List<ChipFloat>>(emptyList()) }
     val nextFloatId = remember { mutableLongStateOf(0L) }
     // The bottom rail's height varies by phase (BettingControls vs WinBars +
@@ -111,10 +136,13 @@ fun GameTableScreen(vm: GameViewModel) {
                 .alpha(if (measured) 1f else 0f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // During the tutorial, quit/help give way to the overlay's
+            // Skip Tutorial button (which sits where the help button was).
             GameHeader(
                 state = state,
                 onQuit = { showQuit = true },
                 onHelp = { showHelp = true },
+                showButtons = !tutorial.isActive,
             )
             Spacer(Modifier.height(12.dp))
             DealerArea(state)
@@ -173,12 +201,20 @@ fun GameTableScreen(vm: GameViewModel) {
         // Fade the round-end overlay in/out so the 58%-black scrim doesn't
         // pop in a single frame — that pop is the screen-wide "flicker" the
         // user sees at bust / Stand / dealer bust / Next Hand boundaries.
+        // During the tutorial the closing card (in TutorialOverlay) replaces it.
         AnimatedVisibility(
-            visible = state.phase == GamePhase.ROUND_END,
+            visible = state.phase == GamePhase.ROUND_END && !tutorial.isActive,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(200)),
         ) {
             RoundEndOverlay(vm)
+        }
+
+        // The coach layer sits topmost, resolving spotlight cutouts from the
+        // anchor rects the table's views publish. Edge-to-edge, no insets
+        // padding — the cutout and the anchors must share one coordinate space.
+        if (tutorial.isActive) {
+            TutorialOverlay(vm)
         }
 
         if (showLossNudge) {
@@ -215,6 +251,16 @@ fun GameTableScreen(vm: GameViewModel) {
         }
     }
 }
+
+/// Snapshot key for the tutorial step machine: every game-state facet whose
+/// change should re-run `sync`, plus the action counter that must be observed
+/// first.
+private data class TutorialSyncKey(
+    val actionCount: Int,
+    val phase: GamePhase,
+    val activeHandIndex: Int,
+    val isDealAnimating: Boolean,
+)
 
 @Composable
 private fun LossNudge(

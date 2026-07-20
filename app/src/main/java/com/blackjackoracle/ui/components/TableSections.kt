@@ -39,16 +39,27 @@ fun GameHeader(
     state: GameState,
     onQuit: () -> Unit,
     onHelp: () -> Unit,
+    /// False during the tutorial: quit/help give way to the overlay's Skip
+    /// Tutorial button, which sits where the help button was.
+    showButtons: Boolean = true,
 ) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        IconButton(onClick = onQuit, modifier = Modifier.align(Alignment.CenterStart)) {
+        IconButton(
+            onClick = onQuit,
+            enabled = showButtons,
+            modifier = Modifier.align(Alignment.CenterStart).alpha(if (showButtons) 1f else 0f),
+        ) {
             Icon(Icons.Default.Close, contentDescription = "Quit", tint = BjColors.Neutral.copy(alpha = 0.7f))
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Hand ${state.currentRound}", color = BjColors.Neutral.copy(alpha = 0.55f), fontWeight = FontWeight.Bold)
             Text(state.phase.displayName(), color = BjColors.Neutral, fontWeight = FontWeight.Black, fontSize = 17.sp)
         }
-        IconButton(onClick = onHelp, modifier = Modifier.align(Alignment.CenterEnd)) {
+        IconButton(
+            onClick = onHelp,
+            enabled = showButtons,
+            modifier = Modifier.align(Alignment.CenterEnd).alpha(if (showButtons) 1f else 0f),
+        ) {
             Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "Help", tint = BjColors.Neutral.copy(alpha = 0.7f))
         }
     }

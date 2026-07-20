@@ -130,4 +130,32 @@ class EntitlementStoreTest {
         clock = fixedNow + 200
         assertNull(s.activeTrialToken)
     }
+
+    // Tutorial grant — temporary premium for the guided first hand.
+
+    @Test
+    fun tutorialGrantUnlocksPremiumForFreeUserAndLeavesNoResidue() {
+        val fake = FakeTrialStore()
+        val s = store(fake)
+        s.setTutorialGrant(true)
+        assertTrue(s.isPremium.value)
+        s.setTutorialGrant(false)
+        // No residue: not premium, nothing persisted, no trial state invented.
+        assertFalse(s.isPremium.value)
+        assertFalse(s.entitled)
+        assertNull(s.activeTrialToken)
+        assertNull(fake.token)
+    }
+
+    @Test
+    fun tutorialGrantWinsOverDebugForceOff() {
+        // The tutorial is designed around unlocked features; a lingering
+        // debug force-off must not break the demo.
+        val s = store()
+        s.debugOverride = false
+        s.setTutorialGrant(true)
+        assertTrue(s.isPremium.value)
+        s.setTutorialGrant(false)
+        assertFalse(s.isPremium.value)
+    }
 }
