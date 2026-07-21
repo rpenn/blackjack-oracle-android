@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -61,6 +62,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.blackjackoracle.BuildConfig
 import com.blackjackoracle.data.CaptionPreferences
+import com.blackjackoracle.data.OnboardingPreferences
 import com.blackjackoracle.service.ReviewPrompter
 import com.blackjackoracle.ui.theme.BjColors
 import kotlinx.coroutines.launch
@@ -93,6 +95,7 @@ fun SettingsScreen(onDismiss: () -> Unit) {
     // Caption prefs read straight from DataStore (the process-wide singleton the
     // in-game CC chip also writes), so both toggle points stay in lockstep.
     val captionPrefs = remember { CaptionPreferences(context) }
+    val onboardingPrefs = remember { OnboardingPreferences(context) }
     val showCaptions by captionPrefs.showCaptions.collectAsState(initial = false)
     val captionOnly by captionPrefs.captionOnly.collectAsState(initial = false)
 
@@ -253,6 +256,23 @@ fun SettingsScreen(onDismiss: () -> Unit) {
 
                     // Support
                     SettingsCard(header = "Support") {
+                        // Clears the onboarding flag and closes Settings —
+                        // AppRoot reacts by showing the welcome screen again,
+                        // where the guided hand can be redealt. Mirrors iOS
+                        // SettingsView.replayTutorial(). Dismiss only after
+                        // the write lands: onDismiss removes this composition
+                        // and cancels `scope`, so a write launched alongside
+                        // it would race its own cancellation.
+                        SettingsRow(
+                            icon = Icons.Filled.School,
+                            title = "Replay Tutorial",
+                            onClick = {
+                                scope.launch {
+                                    onboardingPrefs.setCompleted(false)
+                                    onDismiss()
+                                }
+                            },
+                        )
                         SettingsRow(
                             icon = Icons.Filled.MailOutline,
                             title = "Contact Support",

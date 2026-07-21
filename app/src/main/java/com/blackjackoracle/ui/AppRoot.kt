@@ -15,12 +15,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -33,17 +35,40 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.blackjackoracle.BuildConfig
+import com.blackjackoracle.data.CaptionPreferences
+import com.blackjackoracle.data.OnboardingPreferences
 import com.blackjackoracle.model.GamePhase
 import com.blackjackoracle.service.ReviewPrompter
+import com.blackjackoracle.tutorial.TutorialController
+import com.blackjackoracle.tutorial.TutorialWelcomeScreen
 import com.blackjackoracle.viewmodel.GameViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppRoot(vm: GameViewModel = viewModel()) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val entitlements = LocalEntitlements.current
+    val onboardingPrefs = remember { OnboardingPreferences(context.applicationContext) }
+    val tutorial = remember {
+        TutorialController(
+            context = context.applicationContext,
+            onboardingPrefs = onboardingPrefs,
+            captionPrefs = CaptionPreferences(context.applicationContext),
+            scope = scope,
+        )
+    }
+    // null until DataStore's first emission — render neither fork of the SETUP
+    // branch until the persisted value lands, so returning users never see the
+    // welcome screen flash before SetupScreen.
+    val hasCompletedOnboarding by onboardingPrefs.hasCompletedOnboarding
+        .collectAsState(initial = null)
+
+    CompositionLocalProvider(LocalTutorial provides tutorial) {
     Box(Modifier.fillMaxSize()) {
         var showSettings by remember { mutableStateOf(false) }
-        val context = LocalContext.current
         val reviewPaywall = LocalPaywall.current
         var showSetupReviewLink by remember { mutableStateOf(false) }
 
@@ -98,11 +123,22 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
             // Exhaustive when — adding a phase forces a compile-time decision here
             // rather than silently routing through GameTableScreen.
             when (phase) {
-                GamePhase.SETUP -> SetupScreen(
-                    onStart = vm::startGame,
-                    onSettings = { showSettings = true },
-                    showReviewLink = showSetupReviewLink,
-                )
+                GamePhase.SETUP -> when (hasCompletedOnboarding) {
+                    true -> SetupScreen(
+                        onStart = { vm.startGame() },
+                        onSettings = { showSettings = true },
+                        showReviewLink = showSetupReviewLink,
+                    )
+                    false -> TutorialWelcomeScreen(
+                        onStart = {
+                            tutorial.begin(entitlements)
+                            vm.startGame(tutorial = true)
+                        },
+                        onSkip = { scope.launch { onboardingPrefs.setCompleted(true) } },
+                    )
+                    // DataStore hasn't emitted yet — hold an empty frame.
+                    null -> Box(Modifier.fillMaxSize())
+                }
                 GamePhase.GAME_OVER -> GameOverScreen(vm)
                 GamePhase.BETTING,
                 GamePhase.DEALING,
@@ -135,6 +171,7 @@ fun AppRoot(vm: GameViewModel = viewModel()) {
         if (showSettings) {
             SettingsScreen(onDismiss = { showSettings = false })
         }
+    }
     }
 }
 

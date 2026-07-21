@@ -16,6 +16,15 @@ class Shoe(
 ) {
     private val cards = ArrayDeque<Card>()
 
+    /// Cards forced to come out next, in order, ahead of the shuffled shoe.
+    /// Only the tutorial's scripted hand uses this; `deal()` is the single
+    /// draw seam, so rigging here scripts every deal path (initial deal,
+    /// split draws, double card, dealer draws) without touching game logic.
+    /// Deliberately separate from `stackedCards`: the forced queue does not
+    /// participate in reshuffles and falls through to the real shoe when
+    /// exhausted, so the underflow guard below stays intact.
+    private val forced = ArrayDeque<Card>()
+
     var needsReshuffle: Boolean = false
         private set
 
@@ -43,7 +52,15 @@ class Shoe(
         needsReshuffle = false
     }
 
+    /// Queues `sequence` to be dealt next, first element first, ahead of the
+    /// shuffled shoe. Replaces any previously forced cards.
+    fun forceNext(sequence: List<Card>) {
+        forced.clear()
+        forced.addAll(sequence)
+    }
+
     fun deal(): Card {
+        forced.removeFirstOrNull()?.let { return it }
         // Reshuffles are scheduled between hands via `needsReshuffle`; reaching
         // an empty shoe mid-hand is a contract violation, not a recoverable
         // state. With 8 decks (416 cards) and a 65-card cut, the worst-case

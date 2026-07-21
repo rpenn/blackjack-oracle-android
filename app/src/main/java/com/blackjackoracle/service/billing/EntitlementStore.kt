@@ -42,6 +42,19 @@ class EntitlementStore(
     val activeTrialToken: String?
         get() = if (trialActive) trialToken else null
 
+    /// Temporary premium for the guided first hand, so the new user experiences
+    /// Win Chance and Ask Oliver unlocked. In-memory only — never persisted —
+    /// and set/cleared exclusively by TutorialController. Wins over everything,
+    /// including a DEBUG force-off: the tutorial is designed around unlocked
+    /// features, and a lingering debug override must not break the demo.
+    var tutorialGrant: Boolean = false
+        private set
+
+    fun setTutorialGrant(value: Boolean) {
+        tutorialGrant = value
+        recompute()
+    }
+
     /// In-memory only. Persisting a `false` override would mask a real purchase
     /// across launches (the iOS bug we're avoiding), so it is never stored.
     private var _debugOverride: Boolean? = null
@@ -89,6 +102,10 @@ class EntitlementStore(
     }
 
     private fun recompute() {
+        if (tutorialGrant) {
+            _isPremium.value = true
+            return
+        }
         val real = entitled || trialActive
         _isPremium.value = if (BuildConfig.DEBUG) (_debugOverride ?: real) else real
     }
