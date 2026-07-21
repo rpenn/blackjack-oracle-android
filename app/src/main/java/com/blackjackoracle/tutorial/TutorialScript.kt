@@ -56,7 +56,7 @@ object TutorialScript {
     // Oliver's lines
 
     val lineDeal = TutorialLine(
-        text = "Eighteen against a six. Feels safe. It isn't — ask me.",
+        text = "Eighteen against a six. Feels safe. It isn't. Ask me, Oliver, your AI Coach!",
         audioResource = "tutorial_deal",
     )
     val lineSplit = TutorialLine(

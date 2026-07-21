@@ -30,7 +30,7 @@ const OUT_DIR = path.resolve(__dirname, '../app/src/main/res/raw');
 
 // Must stay byte-identical to TutorialScript.kt's lines.
 const LINES = {
-  'tutorial_deal': "Eighteen against a six. Feels safe. It isn't — ask me.",
+  'tutorial_deal': "Eighteen against a six. Feels safe. It isn't. Ask me, Oliver, your AI Coach!",
   'tutorial_split': 'Split them. A six is one of the weakest cards a dealer can show, and two hands built on a nine beat one static eighteen.',
   'tutorial_stand': 'Nineteen. The split already paid for itself — this hand alone beats the eighteen you started with. Stand.',
   'tutorial_double': 'Eleven against a six — one of the best doubles in the game. This is exactly the spot splitting those nines bought you.',
@@ -39,21 +39,6 @@ const LINES = {
 
 const VOICE = { languageCode: 'en-US', name: 'en-US-Neural2-D' };
 const AUDIO = { audioEncoding: 'MP3', speakingRate: 1.08, pitch: 0.0, volumeGainDb: 0.0 };
-
-// tutorial_deal's " — " reads as a full-stop-length pause (a beat before
-// "ask me"), but plain-text synthesis gives it only a short comma-ish hitch,
-// and an explicit SSML <break> there read as an unnatural dead-air gap. A
-// literal period gets the voice's own natural sentence-final pause instead.
-// The other two lines with an em dash (tutorial_stand, tutorial_double)
-// already land a good pause as plain text, so this swap is opted in per
-// line rather than applied to every dash. Display text (TutorialScript.kt)
-// keeps the em dash — this only changes what's sent to the TTS engine.
-const PERIOD_PAUSE_LINES = new Set(['tutorial_deal']);
-
-function synthesisInput(name, text) {
-  const spoken = PERIOD_PAUSE_LINES.has(name) ? text.replace(/ — /g, '. ') : text;
-  return { text: spoken };
-}
 
 function credential() {
   const env = fs.readFileSync(ENV_PATH, 'utf8');
@@ -88,7 +73,7 @@ async function main() {
     const res = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ input: synthesisInput(name, text), voice: VOICE, audioConfig: AUDIO }),
+      body: JSON.stringify({ input: { text }, voice: VOICE, audioConfig: AUDIO }),
     });
     if (!res.ok) throw new Error(`TTS ${name}: ${res.status} ${await res.text()}`);
     const { audioContent } = await res.json();
